@@ -134,10 +134,10 @@ struct TakeStrip: View {
                 .fixedSize()
 
             stripButton("backward.end", String(localized: "이 테이크만 처음으로")) { model.goToTakeStart(index) }
-            stripButton("gobackward", String(localized: "이 테이크만 1초 뒤로 (⌥⇧←)")) { model.nudge(index, seconds: -1) }
+            stripButton("backward", String(localized: "이 테이크만 1초 뒤로 (⌥⇧←)")) { model.nudge(index, seconds: -1) }
             stripButton("backward.frame", String(localized: "이 테이크만 1프레임 뒤로 — 길게 누르면 반복 (⌥←)"), repeats: true) { model.nudge(index, frames: -1) }
             stripButton("forward.frame", String(localized: "이 테이크만 1프레임 앞으로 — 길게 누르면 반복 (⌥→)"), repeats: true) { model.nudge(index, frames: 1) }
-            stripButton("goforward", String(localized: "이 테이크만 1초 앞으로 (⌥⇧→)")) { model.nudge(index, seconds: 1) }
+            stripButton("forward", String(localized: "이 테이크만 1초 앞으로 (⌥⇧→)")) { model.nudge(index, seconds: 1) }
             stripButton("forward.end", String(localized: "이 테이크만 끝으로")) { model.goToTakeEnd(index) }
 
             Spacer(minLength: 8)
