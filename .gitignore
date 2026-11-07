@@ -1,0 +1,28 @@
+# Xcode
+build/
+DerivedData/
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+*.xcworkspace/xcuserdata/
+*.xcuserstate
+xcuserdata/
+*.moved-aside
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Swift Package Manager
+.build/
+.swiftpm/
+Package.resolved
+
+# xcodegen output is regenerated from project.yml
+TakeCompare.xcodeproj/
+
+# macOS
+.DS_Store
+dist/
+
+# API 워커 작업 폴더 (브리프·보고·로그)
+_API_WORKER/

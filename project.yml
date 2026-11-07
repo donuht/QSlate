@@ -1,0 +1,62 @@
+name: TakeCompare
+options:
+  bundleIdPrefix: com.jasonhwangfilm
+  developmentLanguage: ko
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+  generateEmptyDirectories: true
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    MARKETING_VERSION: "1.0.0"
+    CURRENT_PROJECT_VERSION: "1"
+    # 로컬 빌드는 ad-hoc 서명. 배포 때 Developer ID로 교체.
+    CODE_SIGN_STYLE: Manual
+    CODE_SIGN_IDENTITY: "-"
+    DEVELOPMENT_TEAM: ""
+    ENABLE_HARDENED_RUNTIME: NO
+    ENABLE_APP_SANDBOX: NO
+    DEAD_CODE_STRIPPING: YES
+    # Apple Silicon·Intel 유니버설
+    ARCHS: "$(ARCHS_STANDARD)"
+    ONLY_ACTIVE_ARCH: NO
+targets:
+  TakeCompare:
+    type: application
+    platform: macOS
+    sources:
+      - path: TakeCompare
+        excludes:
+          - "Resources/AppIcon-source.swift.txt"
+    info:
+      path: TakeCompare/Info.plist
+      properties:
+        CFBundleDisplayName: TakeCompare
+        CFBundleName: TakeCompare
+        LSMinimumSystemVersion: $(MACOSX_DEPLOYMENT_TARGET)
+        LSApplicationCategoryType: public.app-category.video
+        NSHumanReadableCopyright: "© 2026 Jason Hwang"
+        NSPrincipalClass: NSApplication
+        CFBundleDevelopmentRegion: ko
+        CFBundleLocalizations:
+          - ko
+          - en
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.jasonhwangfilm.takecompare
+        PRODUCT_NAME: TakeCompare
+        GENERATE_INFOPLIST_FILE: NO
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        SWIFT_EMIT_LOC_STRINGS: YES
+        COMBINE_HIDPI_IMAGES: YES
+schemes:
+  TakeCompare:
+    build:
+      targets:
+        TakeCompare: all
+    run:
+      config: Debug
+    archive:
+      config: Release

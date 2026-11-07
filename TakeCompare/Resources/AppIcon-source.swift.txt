@@ -1,0 +1,51 @@
+import AppKit
+
+// TakeCompare 앱 아이콘 원본 (v1 플레이스홀더: 네이비 바탕 + 2×2 격자 기호 + 재생 표시).
+// 실행: cp AppIcon-source.swift.txt /tmp/gen.swift && swiftc -O -o /tmp/gen /tmp/gen.swift && /tmp/gen <AppIcon.appiconset 폴더>
+
+func rgb(_ r: CGFloat, _ g: CGFloat, _ b: CGFloat) -> NSColor { NSColor(red: r, green: g, blue: b, alpha: 1) }
+
+func draw(_ size: CGFloat) -> NSBitmapImageRep {
+    let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(size), pixelsHigh: Int(size), bitsPerSample: 8,
+                               samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!
+    NSGraphicsContext.saveGraphicsState()
+    NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
+    let s = size / 1024
+    let rect = NSRect(x: 100 * s, y: 100 * s, width: 824 * s, height: 824 * s)
+    let bg = NSBezierPath(roundedRect: rect, xRadius: 185 * s, yRadius: 185 * s)
+    NSGraphicsContext.saveGraphicsState(); bg.addClip()
+    NSGradient(colors: [rgb(0.17, 0.24, 0.42), rgb(0.08, 0.12, 0.26)])!.draw(in: rect, angle: -90)
+    NSGraphicsContext.restoreGraphicsState()
+    // 2×2 칸
+    let gap = 36 * s, pad = 150 * s
+    let cell = (rect.width - pad * 2 - gap) / 2
+    let colors = [rgb(1.0, 0.82, 0.30), rgb(0.93, 0.95, 1.0), rgb(0.93, 0.95, 1.0), rgb(0.93, 0.95, 1.0)]
+    for i in 0..<4 {
+        let col = CGFloat(i % 2), row = CGFloat(1 - i / 2)
+        let r = NSRect(x: rect.minX + pad + col * (cell + gap), y: rect.minY + pad + row * (cell + gap), width: cell, height: cell * 0.82)
+        colors[i].withAlphaComponent(i == 0 ? 1 : 0.85).setFill()
+        NSBezierPath(roundedRect: r, xRadius: 26 * s, yRadius: 26 * s).fill()
+        // 재생 삼각형
+        let tri = NSBezierPath()
+        let c = NSPoint(x: r.midX, y: r.midY), h = r.height * 0.32
+        tri.move(to: NSPoint(x: c.x - h * 0.45, y: c.y - h / 2))
+        tri.line(to: NSPoint(x: c.x - h * 0.45, y: c.y + h / 2))
+        tri.line(to: NSPoint(x: c.x + h * 0.55, y: c.y))
+        tri.close()
+        rgb(0.10, 0.15, 0.30).setFill(); tri.fill()
+    }
+    NSGraphicsContext.restoreGraphicsState()
+    return rep
+}
+
+let out = URL(fileURLWithPath: CommandLine.arguments[1])
+var images: [[String: String]] = []
+for base in [16, 32, 128, 256, 512] {
+    for scale in [1, 2] {
+        let name = "icon_\(base)x\(base)@\(scale)x.png"
+        try! draw(CGFloat(base * scale)).representation(using: .png, properties: [:])!.write(to: out.appendingPathComponent(name))
+        images.append(["filename": name, "idiom": "mac", "scale": "\(scale)x", "size": "\(base)x\(base)"])
+    }
+}
+let json: [String: Any] = ["images": images, "info": ["author": "xcode", "version": 1]]
+try! JSONSerialization.data(withJSONObject: json, options: [.prettyPrinted, .sortedKeys]).write(to: out.appendingPathComponent("Contents.json"))

@@ -1,0 +1,616 @@
+{
+  "sourceLanguage": "ko",
+  "strings": {
+    "%lld개 열림 — 스페이스 재생, 1~4 단독 보기, ⌘S 프레임 저장": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld takes open — Space to play, 1–4 to solo, ⌘S to save frames"
+          }
+        }
+      }
+    },
+    "%lld개 중 %lld개를 열지 못했습니다 — 나머지로 비교합니다": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not open %2$lld of %1$lld — comparing the rest"
+          }
+        }
+      }
+    },
+    "%lld개 중 앞의 4개만 열었습니다 — 5번째부터는 무시했습니다": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opened only the first 4 of %lld — the 5th and later were ignored"
+          }
+        }
+      }
+    },
+    "%lld장 저장 → %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saved %lld frames → %@"
+          }
+        }
+      }
+    },
+    "%lld장 저장, %lld장 실패 → %@ (%@)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saved %1$lld, %2$lld failed → %3$@ (%4$@)"
+          }
+        }
+      }
+    },
+    "1초 뒤로": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Back 1 Second"
+          }
+        }
+      }
+    },
+    "1초 앞으로": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Forward 1 Second"
+          }
+        }
+      }
+    },
+    "Finder에서 보기": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show in Finder"
+          }
+        }
+      }
+    },
+    "PNG 파일을 만들 수 없습니다: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not create PNG file: %@"
+          }
+        }
+      }
+    },
+    "TakeCompare 가리기": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hide TakeCompare"
+          }
+        }
+      }
+    },
+    "TakeCompare 종료": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quit TakeCompare"
+          }
+        }
+      }
+    },
+    "TakeCompare에 관하여": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "About TakeCompare"
+          }
+        }
+      }
+    },
+    "mp4·mov 2~4개 · ⌘O로 열기": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "2–4 mp4/mov files · ⌘O to open"
+          }
+        }
+      }
+    },
+    "mp4·mov 2~4개를 창에 끌어다 놓거나 ⌘O로 여세요": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Drop 2–4 mp4/mov files on the window, or press ⌘O"
+          }
+        }
+      }
+    },
+    "격자": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grid"
+          }
+        }
+      }
+    },
+    "기타 가리기": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hide Others"
+          }
+        }
+      }
+    },
+    "길이를 읽을 수 없습니다": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not read the duration"
+          }
+        }
+      }
+    },
+    "끝으로": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Go to End"
+          }
+        }
+      }
+    },
+    "단독 보기 — 같은 숫자 또는 Esc로 격자": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Solo view — press the same number or Esc for the grid"
+          }
+        }
+      }
+    },
+    "루프": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loop"
+          }
+        }
+      }
+    },
+    "루프 (L)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loop (L)"
+          }
+        }
+      }
+    },
+    "루프 끔": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loop off"
+          }
+        }
+      }
+    },
+    "루프 켬": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loop on"
+          }
+        }
+      }
+    },
+    "모두 보기": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show All"
+          }
+        }
+      }
+    },
+    "모두 앞으로 가져오기": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bring All to Front"
+          }
+        }
+      }
+    },
+    "보기": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "View"
+          }
+        }
+      }
+    },
+    "비교하려면 2개 이상 필요합니다 — 영상 2~4개를 한꺼번에 끌어다 놓으세요": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Comparing needs 2 or more — drop 2–4 videos at once"
+          }
+        }
+      }
+    },
+    "비교할 테이크 2~4개를 고르세요": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose 2–4 takes to compare"
+          }
+        }
+      }
+    },
+    "비교할 테이크를 끌어다 놓으세요": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Drop the takes to compare"
+          }
+        }
+      }
+    },
+    "소리 켬 — 선택한 테이크만 들립니다": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sound on — only the selected take plays audio"
+          }
+        }
+      }
+    },
+    "여는 중…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opening…"
+          }
+        }
+      }
+    },
+    "열 수 없음": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cannot Open"
+          }
+        }
+      }
+    },
+    "열 수 있는 영상 파일(mp4·mov)이 없습니다": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No video files (mp4/mov) to open"
+          }
+        }
+      }
+    },
+    "열기": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open"
+          }
+        }
+      }
+    },
+    "열기…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open…"
+          }
+        }
+      }
+    },
+    "열린 테이크가 없습니다 — 모든 파일을 읽지 못했습니다": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No takes open — none of the files could be read"
+          }
+        }
+      }
+    },
+    "영상 트랙이 없습니다": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No video track"
+          }
+        }
+      }
+    },
+    "영상이 아닌 파일 %lld개는 건너뛰었습니다": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skipped %lld non-video files"
+          }
+        }
+      }
+    },
+    "이 테이크의 소리가 납니다": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This take is playing audio"
+          }
+        }
+      }
+    },
+    "재생": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Play"
+          }
+        }
+      }
+    },
+    "재생/정지 (스페이스)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Play/Pause (Space)"
+          }
+        }
+      }
+    },
+    "재생할 수 없는 형식입니다 (코덱 미지원)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unplayable format (unsupported codec)"
+          }
+        }
+      }
+    },
+    "저장 폴더를 만들 수 없습니다: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not create the save folder: %@"
+          }
+        }
+      }
+    },
+    "저장할 수 있는 테이크가 없습니다": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No takes can be saved"
+          }
+        }
+      }
+    },
+    "저장할 테이크가 없습니다": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No takes to save"
+          }
+        }
+      }
+    },
+    "전체 음소거": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mute All"
+          }
+        }
+      }
+    },
+    "전체 음소거 (M)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mute All (M)"
+          }
+        }
+      }
+    },
+    "전체 음소거 중": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All muted"
+          }
+        }
+      }
+    },
+    "정지": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pause"
+          }
+        }
+      }
+    },
+    "창": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Window"
+          }
+        }
+      }
+    },
+    "창 닫기": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Close Window"
+          }
+        }
+      }
+    },
+    "처음으로": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Go to Start"
+          }
+        }
+      }
+    },
+    "최소화": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Minimize"
+          }
+        }
+      }
+    },
+    "테이크 %lld만 보기": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Solo Take %lld"
+          }
+        }
+      }
+    },
+    "파일": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "File"
+          }
+        }
+      }
+    },
+    "프레임 저장 (모든 테이크)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save Frames (All Takes)"
+          }
+        }
+      }
+    },
+    "프레임 저장 (선택한 테이크)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save Frame (Selected Take)"
+          }
+        }
+      }
+    },
+    "프레임 저장 중…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saving frames…"
+          }
+        }
+      }
+    },
+    "한 프레임 뒤로": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Back 1 Frame"
+          }
+        }
+      }
+    },
+    "한 프레임 앞으로": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Forward 1 Frame"
+          }
+        }
+      }
+    },
+    "확대/축소": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zoom"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}
