@@ -1,4 +1,4 @@
-name: TakeCompare
+name: QSlate
 options:
   bundleIdPrefix: com.jasonhwangfilm
   developmentLanguage: ko
@@ -23,18 +23,18 @@ settings:
     ARCHS: "$(ARCHS_STANDARD)"
     ONLY_ACTIVE_ARCH: NO
 targets:
-  TakeCompare:
+  QSlate:
     type: application
     platform: macOS
     sources:
-      - path: TakeCompare
+      - path: QSlate
         excludes:
           - "Resources/AppIcon-source.swift.txt"
     info:
-      path: TakeCompare/Info.plist
+      path: QSlate/Info.plist
       properties:
-        CFBundleDisplayName: TakeCompare
-        CFBundleName: TakeCompare
+        CFBundleDisplayName: QSlate
+        CFBundleName: QSlate
         LSMinimumSystemVersion: $(MACOSX_DEPLOYMENT_TARGET)
         LSApplicationCategoryType: public.app-category.video
         NSHumanReadableCopyright: "© 2026 Jason Hwang"
@@ -45,17 +45,17 @@ targets:
           - en
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.jasonhwangfilm.takecompare
-        PRODUCT_NAME: TakeCompare
+        PRODUCT_BUNDLE_IDENTIFIER: com.jasonhwangfilm.qslate
+        PRODUCT_NAME: QSlate
         GENERATE_INFOPLIST_FILE: NO
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         SWIFT_EMIT_LOC_STRINGS: YES
         COMBINE_HIDPI_IMAGES: YES
 schemes:
-  TakeCompare:
+  QSlate:
     build:
       targets:
-        TakeCompare: all
+        QSlate: all
     run:
       config: Debug
     archive:

@@ -40,14 +40,14 @@ enum MainMenu {
     }
 
     private static func appMenu() -> NSMenu {
-        let menu = NSMenu(title: "TakeCompare")
-        menu.addItem(item(String(localized: "TakeCompare에 관하여"), #selector(NSApplication.orderFrontStandardAboutPanel(_:))))
+        let menu = NSMenu(title: "QSlate")
+        menu.addItem(item(String(localized: "QSlate에 관하여"), #selector(NSApplication.orderFrontStandardAboutPanel(_:))))
         menu.addItem(.separator())
-        menu.addItem(item(String(localized: "TakeCompare 가리기"), #selector(NSApplication.hide(_:)), "h"))
+        menu.addItem(item(String(localized: "QSlate 가리기"), #selector(NSApplication.hide(_:)), "h"))
         menu.addItem(item(String(localized: "기타 가리기"), #selector(NSApplication.hideOtherApplications(_:)), "h", [.command, .option]))
         menu.addItem(item(String(localized: "모두 보기"), #selector(NSApplication.unhideAllApplications(_:))))
         menu.addItem(.separator())
-        menu.addItem(item(String(localized: "TakeCompare 종료"), #selector(NSApplication.terminate(_:)), "q"))
+        menu.addItem(item(String(localized: "QSlate 종료"), #selector(NSApplication.terminate(_:)), "q"))
         return menu
     }
 

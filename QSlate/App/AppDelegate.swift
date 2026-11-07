@@ -4,7 +4,7 @@ import UniformTypeIdentifiers
 
 /// 명시적 진입점 (Ledge와 같은 방식).
 @main
-enum TakeCompareMain {
+enum QSlateMain {
     @MainActor
     static func main() {
         let app = NSApplication.shared
@@ -46,7 +46,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             backing: .buffered,
             defer: false
         )
-        window.title = "TakeCompare"
+        window.title = "QSlate"
         window.isReleasedWhenClosed = false
         // 2×2 격자에서 칸마다 조작 줄이 들어가도 영상이 너무 작아지지 않게
         let minSize = NSSize(width: 1100, height: 700)
@@ -57,7 +57,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         window.contentView = hosting
         window.center()
         // 창 크기·위치 기억 (저장된 값이 있으면 복원)
-        window.setFrameAutosaveName("TakeCompareMainWindow")
+        window.setFrameAutosaveName("QSlateMainWindow")
         // 예전 버전이 기억한 더 작은 창 크기는 최소 크기로 키운다.
         let content = window.contentRect(forFrameRect: window.frame).size
         if content.width < minSize.width || content.height < minSize.height {

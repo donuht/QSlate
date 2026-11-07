@@ -151,32 +151,32 @@
         }
       }
     },
-    "TakeCompare 가리기": {
+    "QSlate 가리기": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Hide TakeCompare"
+            "value": "Hide QSlate"
           }
         }
       }
     },
-    "TakeCompare 종료": {
+    "QSlate 종료": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Quit TakeCompare"
+            "value": "Quit QSlate"
           }
         }
       }
     },
-    "TakeCompare에 관하여": {
+    "QSlate에 관하여": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "About TakeCompare"
+            "value": "About QSlate"
           }
         }
       }

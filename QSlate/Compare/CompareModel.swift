@@ -53,7 +53,7 @@ final class CompareModel {
     /// 칸 ▶(그 테이크만 재생) 중인 테이크별 관찰자: 위치 갱신용 주기 관찰자 + 끝(Out·파일 끝) 알림
     @ObservationIgnored private var soloObservers: [Int: (player: AVPlayer, time: Any, end: NSObjectProtocol)] = [:]
     @ObservationIgnored private var loadGeneration = 0
-    @ObservationIgnored private let log = Logger(subsystem: "com.jasonhwangfilm.takecompare", category: "step")
+    @ObservationIgnored private let log = Logger(subsystem: "com.jasonhwangfilm.qslate", category: "step")
 
     init() {
         statusMessage = String(localized: "mp4·mov 2~4개를 창에 끌어다 놓거나 ⌘O로 여세요")

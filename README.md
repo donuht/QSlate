@@ -1,4 +1,6 @@
-# TakeCompare
+# QSlate
+
+QSlate(큐슬레이트) — Q(검수·QC)와 Slate(테이크 번호판). 생성 영상 테이크들을 나란히 놓고 같은 시점에서 고르는 macOS 앱.
 
 macOS용 생성 영상 테이크 비교기. 같은 컷을 여러 번 뽑은 mp4 2~4개를 한 창에 띄워 **같은 시점으로 동기 재생**하고, 같은 시점 프레임을 한 번에 PNG로 뽑는다. QuickTime 창 여러 개를 띄워 눈으로 시점을 맞추던 걸 대신하려고 만들었다.
 
@@ -53,16 +55,16 @@ macOS용 생성 영상 테이크 비교기. 같은 컷을 여러 번 뽑은 mp4 
 ## 설치
 
 - macOS 14 Sonoma 이상, Apple Silicon·Intel 둘 다.
-- [Releases](../../releases)에서 `TakeCompare.zip`을 받아 풀고 `TakeCompare.app`을 응용 프로그램 폴더로 옮긴다.
+- [Releases](../../releases)에서 `QSlate.zip`을 받아 풀고 `QSlate.app`을 응용 프로그램 폴더로 옮긴다.
 - **첫 실행 때 "Apple에서 악성 소프트웨어가 없는지 확인할 수 없다"는 창이 뜬다.** 아직 Apple Developer ID로 서명·공증하지 않았기 때문이다. 한 번만 아래처럼 열어 주면 이후엔 그냥 실행된다.
   1. 앱을 더블클릭 → 경고 창에서 **완료**를 누른다 (휴지통으로 이동은 누르지 않는다).
-  2. **시스템 설정 → 개인정보 보호 및 보안**으로 가서 아래로 내리면 "TakeCompare이(가) 차단되었습니다" 옆에 **그래도 열기** 버튼이 있다. 누르고 암호를 넣는다.
+  2. **시스템 설정 → 개인정보 보호 및 보안**으로 가서 아래로 내리면 "QSlate이(가) 차단되었습니다" 옆에 **그래도 열기** 버튼이 있다. 누르고 암호를 넣는다.
   3. macOS 14 Sonoma 이하에서는 앱을 **우클릭 → 열기**로도 된다 (15 Sequoia부터는 이 방법이 막혔다).
 
   터미널이 편하면 이 한 줄로 대신할 수 있다:
 
 ```bash
-xattr -dr com.apple.quarantine /Applications/TakeCompare.app
+xattr -dr com.apple.quarantine /Applications/QSlate.app
 ```
 
 ## 직접 빌드
@@ -76,10 +78,10 @@ xcodegen generate
 ```
 
 ```bash
-xcodebuild -scheme TakeCompare -configuration Release -derivedDataPath build
+xcodebuild -scheme QSlate -configuration Release -derivedDataPath build
 ```
 
-결과물은 `build/Build/Products/Release/TakeCompare.app`. 외부 의존성은 없다(AVFoundation·AVKit·SwiftUI만 쓴다).
+결과물은 `build/Build/Products/Release/QSlate.app`. 외부 의존성은 없다(AVFoundation·AVKit·SwiftUI만 쓴다).
 
 ## 설계 메모
 
@@ -92,7 +94,7 @@ xcodebuild -scheme TakeCompare -configuration Release -derivedDataPath build
 
 ## English
 
-TakeCompare is a small macOS app for comparing AI-generated video takes. Drop 2–4 mp4/mov files on the window (or press `⌘O`): two takes sit side by side, three or four in a 2×2 grid, each labeled with file name, resolution, fps and duration. All players start on the same host-time clock so they never drift. Each take can have its own In and Out: select a cell and press `I`/`O` to mark the frame you are looking at (`⌥I`/`⌥O` clear them, View → Clear All In/Out resets every take). In and Out are plain markers at absolute times in each take's own file. **Alignment comes only from In:** the per-cell controls and `⌥←`/`⌥→` (`⌥⇧←`/`⌥⇧→` for one second) move only that take's playhead — In/Out and the other takes stay put, so the takes may be out of line while you explore, and the time readout shows `— / 00:03.00`. Shared controls (play, the shared slider, shared `◀ ▶`/`← →`, `⇧← ⇧→`, `Home`/`End`, loop) line every take up again at `its In + t` — starting from t = 0, i.e. each take's In, if they were scattered. The timeline counts from In (`t / range`, range = the longest In–Out span) and a take past its Out holds its Out frame.
+QSlate is a small macOS app for comparing AI-generated video takes. Drop 2–4 mp4/mov files on the window (or press `⌘O`): two takes sit side by side, three or four in a 2×2 grid, each labeled with file name, resolution, fps and duration. All players start on the same host-time clock so they never drift. Each take can have its own In and Out: select a cell and press `I`/`O` to mark the frame you are looking at (`⌥I`/`⌥O` clear them, View → Clear All In/Out resets every take). In and Out are plain markers at absolute times in each take's own file. **Alignment comes only from In:** the per-cell controls and `⌥←`/`⌥→` (`⌥⇧←`/`⌥⇧→` for one second) move only that take's playhead — In/Out and the other takes stay put, so the takes may be out of line while you explore, and the time readout shows `— / 00:03.00`. Shared controls (play, the shared slider, shared `◀ ▶`/`← →`, `⇧← ⇧→`, `Home`/`End`, loop) line every take up again at `its In + t` — starting from t = 0, i.e. each take's In, if they were scattered. The timeline counts from In (`t / range`, range = the longest In–Out span) and a take past its Out holds its Out frame.
 
 **Per-take control strip.** Under every video sits that take's own control strip, so everything can be done with the mouse alone. Its transport controls move **only that take's playhead** (never its In/Out, never the other takes), and clicking any of them selects the cell. From the left: `▶`/`❚❚` **plays or pauses only this take** (the others stay where they are and the takes fall out of line; it stops on the Out frame, or at the end of the file without an Out, and pressing it there starts again from In; with loop on it repeats this take's In–Out; you hear it only if `🔊` is on this cell; pressed during shared playback it stops the shared playback and keeps only this take going; several cells can play on their own, and touching another control of that cell stops its playback first — this button does not select the cell), the take's own time (in its original file, live while playing), `|◀` go to this take's In (or the start), −1 s `◀◀`, −1/+1 frame `◀`/`▶` (hold to repeat: after 0.4 s, 8 times a second), +1 s `▶▶`, `▶|` go to this take's Out (or the end), the `[In]` and `[Out]` buttons (mark the frame this take is showing; the label shows the current value or `—`) with the In offset from the first take (`+3f`), `↺` to clear this take's In/Out, `🔊` to hear this take (one at a time; also unmutes), and `⤢` to view it alone. The bar underneath spans the whole take: the In–Out range is highlighted, the rest dimmed, and a line marks the playhead. **Drag the bar to move only that take's playhead** (it stops playback). You can move anywhere in the file, past In or Out. Marking In at or after the Out clears the Out; marking Out with no In counts from the start, and an Out before the In is ignored. The label above each cell shows number, file name, resolution, fps and duration.
 
@@ -103,9 +105,9 @@ TakeCompare is a small macOS app for comparing AI-generated video takes. Drop 2�
 
 The shared bar at the bottom of the window has one slider that scrubs every take frame-accurately, `◀`/`▶` to step every take one frame (hold to repeat), loop, mute, **Save** (`⌘S`) and **Clear All In/Out**. `Space` plays/pauses (if any cell is playing on its own, the first press only stops everything; the next press starts shared playback from each take's In), `←`/`→` steps every take one frame (`AVPlayerItem.step(byCount:)`, each by its own frame), `⇧←`/`⇧→` one second, `Home`/`End` jump to start/end, `L` toggles loop (on by default). View → Frame Step Self-Test steps all takes ±1 frame ten times and reports e.g. `10/10 exact`. Press `1`–`4` to view one take full-window (A/B), and the same key or `Esc` to return to the grid. Only the selected take (click a cell) plays audio; `M` mutes everything. `⌘S` saves the frame each take is showing as PNG into `_frames/` next to the first file (`<name>_t03.47.png`, time measured in the original file regardless of In); `⇧⌘S` saves only the selected take. Click the status bar result to reveal the files in Finder. Files that cannot be decoded show the reason in their cell while the rest keep working. UI is in Korean and English.
 
-Requires macOS 14+ (Apple Silicon and Intel). Download `TakeCompare.zip` from Releases and move `TakeCompare.app` to Applications. The app is not yet notarized, so the first launch is blocked: double-click it, choose **Done** in the warning, then go to **System Settings → Privacy & Security**, scroll down and click **Open Anyway**. (On macOS 14 and earlier, right-click → Open also works.) Or run the `xattr` command above.
+Requires macOS 14+ (Apple Silicon and Intel). Download `QSlate.zip` from Releases and move `QSlate.app` to Applications. The app is not yet notarized, so the first launch is blocked: double-click it, choose **Done** in the warning, then go to **System Settings → Privacy & Security**, scroll down and click **Open Anyway**. (On macOS 14 and earlier, right-click → Open also works.) Or run the `xattr` command above.
 
-To build it yourself: `brew install xcodegen`, `xcodegen generate`, then `xcodebuild -scheme TakeCompare -configuration Release -derivedDataPath build`. No third-party dependencies.
+To build it yourself: `brew install xcodegen`, `xcodegen generate`, then `xcodebuild -scheme QSlate -configuration Release -derivedDataPath build`. No third-party dependencies.
 
 ## License
 

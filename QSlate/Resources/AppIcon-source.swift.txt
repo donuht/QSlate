@@ -1,0 +1,95 @@
+import AppKit
+
+// QSlate 앱 아이콘 원본: 네이비 바탕 + 클래퍼보드(슬레이트). 열린 클래퍼 팔에 노랑/네이비 사선 줄무늬, 본체에 나란한 두 칸(테이크 비교).
+// 실행: cp AppIcon-source.swift.txt /tmp/gen.swift && swiftc -O -o /tmp/gen /tmp/gen.swift && /tmp/gen <AppIcon.appiconset 폴더>
+
+func rgb(_ r: CGFloat, _ g: CGFloat, _ b: CGFloat) -> NSColor { NSColor(red: r, green: g, blue: b, alpha: 1) }
+
+func draw(_ size: CGFloat) -> NSBitmapImageRep {
+    let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(size), pixelsHigh: Int(size), bitsPerSample: 8,
+                               samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!
+    NSGraphicsContext.saveGraphicsState()
+    NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
+    let s = size / 1024
+    let rect = NSRect(x: 100 * s, y: 100 * s, width: 824 * s, height: 824 * s)
+    let bg = NSBezierPath(roundedRect: rect, xRadius: 185 * s, yRadius: 185 * s)
+    NSGraphicsContext.saveGraphicsState(); bg.addClip()
+    NSGradient(colors: [rgb(0.17, 0.24, 0.42), rgb(0.08, 0.12, 0.26)])!.draw(in: rect, angle: -90)
+    NSGraphicsContext.restoreGraphicsState()
+
+    let yellow = rgb(1.0, 0.82, 0.30), light = rgb(0.93, 0.95, 1.0), navy = rgb(0.10, 0.15, 0.30)
+
+    // 본체(아래 판)
+    let body = NSRect(x: 212 * s, y: 230 * s, width: 600 * s, height: 330 * s)
+    light.setFill()
+    NSBezierPath(roundedRect: body, xRadius: 34 * s, yRadius: 34 * s).fill()
+    // 본체 안 나란한 두 칸 = 테이크 비교
+    let gap = 28 * s, pad = 54 * s
+    let cw = (body.width - pad * 2 - gap) / 2
+    for i in 0..<2 {
+        let r = NSRect(x: body.minX + pad + CGFloat(i) * (cw + gap), y: body.minY + pad, width: cw, height: body.height - pad * 2)
+        (i == 0 ? yellow : navy.withAlphaComponent(0.18)).setFill()
+        NSBezierPath(roundedRect: r, xRadius: 18 * s, yRadius: 18 * s).fill()
+        let tri = NSBezierPath()
+        let c = NSPoint(x: r.midX, y: r.midY), h = r.height * 0.36
+        tri.move(to: NSPoint(x: c.x - h * 0.42, y: c.y - h / 2))
+        tri.line(to: NSPoint(x: c.x - h * 0.42, y: c.y + h / 2))
+        tri.line(to: NSPoint(x: c.x + h * 0.52, y: c.y))
+        tri.close()
+        navy.setFill(); tri.fill()
+    }
+
+    // 고정 줄무늬 바(본체 위, 닫힌 쪽)
+    func stripes(in r: NSRect, radius: CGFloat) {
+        NSGraphicsContext.saveGraphicsState()
+        NSBezierPath(roundedRect: r, xRadius: radius, yRadius: radius).addClip()
+        yellow.setFill(); r.fill()
+        navy.setFill()
+        let w = r.height * 0.9
+        var x = r.minX - r.height
+        while x < r.maxX + r.height {
+            let p = NSBezierPath()
+            p.move(to: NSPoint(x: x, y: r.minY))
+            p.line(to: NSPoint(x: x + w, y: r.minY))
+            p.line(to: NSPoint(x: x + w + r.height * 0.55, y: r.maxY))
+            p.line(to: NSPoint(x: x + r.height * 0.55, y: r.maxY))
+            p.close(); p.fill()
+            x += w * 2
+        }
+        NSGraphicsContext.restoreGraphicsState()
+    }
+    let fixedBar = NSRect(x: 212 * s, y: 572 * s, width: 600 * s, height: 86 * s)
+    stripes(in: fixedBar, radius: 20 * s)
+
+    // 열린 클래퍼 팔: 왼쪽 끝을 축으로 18° 들어 올림
+    NSGraphicsContext.saveGraphicsState()
+    let hinge = NSPoint(x: 212 * s + 40 * s, y: 672 * s)
+    let t = NSAffineTransform()
+    t.translateX(by: hinge.x, yBy: hinge.y)
+    t.rotate(byDegrees: 18)
+    t.translateX(by: -hinge.x, yBy: -hinge.y)
+    t.concat()
+    let arm = NSRect(x: 212 * s, y: 672 * s, width: 600 * s, height: 86 * s)
+    stripes(in: arm, radius: 20 * s)
+    NSGraphicsContext.restoreGraphicsState()
+    // 경첩 점
+    yellow.setFill()
+    NSBezierPath(ovalIn: NSRect(x: hinge.x - 26 * s, y: hinge.y - 26 * s, width: 52 * s, height: 52 * s)).fill()
+    navy.setFill()
+    NSBezierPath(ovalIn: NSRect(x: hinge.x - 11 * s, y: hinge.y - 11 * s, width: 22 * s, height: 22 * s)).fill()
+
+    NSGraphicsContext.restoreGraphicsState()
+    return rep
+}
+
+let out = URL(fileURLWithPath: CommandLine.arguments[1])
+var images: [[String: String]] = []
+for base in [16, 32, 128, 256, 512] {
+    for scale in [1, 2] {
+        let name = "icon_\(base)x\(base)@\(scale)x.png"
+        try! draw(CGFloat(base * scale)).representation(using: .png, properties: [:])!.write(to: out.appendingPathComponent(name))
+        images.append(["filename": name, "idiom": "mac", "scale": "\(scale)x", "size": "\(base)x\(base)"])
+    }
+}
+let json: [String: Any] = ["images": images, "info": ["author": "xcode", "version": 1]]
+try! JSONSerialization.data(withJSONObject: json, options: [.prettyPrinted, .sortedKeys]).write(to: out.appendingPathComponent("Contents.json"))
