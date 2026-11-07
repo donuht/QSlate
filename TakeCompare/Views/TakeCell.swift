@@ -126,11 +126,6 @@ struct TakeStrip: View {
 
     private var buttonRow: some View {
         HStack(spacing: 2) {
-            // 이 테이크만 재생/정지 (다른 테이크는 그대로)
-            stripButton(take.isSoloPlaying ? "pause.fill" : "play.fill",
-                        String(localized: "이 테이크만 재생/정지"),
-                        highlighted: take.isSoloPlaying) { model.togglePlayTake(index) }
-
             // 이 테이크의 절대 시각(원본 기준)
             Text(verbatim: TimeFormat.clock(take.position))
                 .font(.system(.callout, design: .monospaced))
@@ -142,6 +137,11 @@ struct TakeStrip: View {
             stripButton("backward.end", String(localized: "이 테이크 In으로 (In이 없으면 처음)")) { model.goToTakeIn(index) }
             stripButton("backward", String(localized: "이 테이크 위치만 1초 뒤로 (⌥⇧←)")) { model.moveTake(index, seconds: -1) }
             stripButton("backward.frame", String(localized: "이 테이크 위치만 1프레임 뒤로 — 길게 누르면 반복 (⌥←)"), repeats: true) { model.moveTake(index, frames: -1) }
+            // 이 테이크만 재생/정지 (다른 테이크는 그대로)
+            stripButton(take.isSoloPlaying ? "pause.fill" : "play.fill",
+                        String(localized: "이 테이크만 재생/정지"),
+                        highlighted: take.isSoloPlaying) { model.togglePlayTake(index) }
+
             stripButton("forward.frame", String(localized: "이 테이크 위치만 1프레임 앞으로 — 길게 누르면 반복 (⌥→)"), repeats: true) { model.moveTake(index, frames: 1) }
             stripButton("forward", String(localized: "이 테이크 위치만 1초 앞으로 (⌥⇧→)")) { model.moveTake(index, seconds: 1) }
             stripButton("forward.end", String(localized: "이 테이크 Out으로 (Out이 없으면 끝)")) { model.goToTakeOut(index) }
