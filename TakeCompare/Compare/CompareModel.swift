@@ -11,12 +11,15 @@ final class CompareModel {
     static let maxTakes = 4
 
     private(set) var takes: [Take] = []
-    /// 공통 타임라인 현재 시각 t(초). **In 기준 상대 시각** — 각 테이크는 자기 In + t를 보여준다.
+    /// 공통 타임라인 현재 시각 t(초). **In 기준 상대 시각** — 줄 세운 상태(`isAligned`)에서 각 테이크는 자기 In + t를 보여준다.
+    /// 칸 조작으로 흩어지면 0으로 돌아간다 — 다음 공통 조작은 각자 In(t = 0)에서 다시 줄 세운다.
     private(set) var currentTime: Double = 0
+    /// 모든 테이크가 자기 In + t에 서 있는가. 칸 조작(그 테이크만 탐색)이 false로, 공통 조작(재생·슬라이더·← →·Home/End)이 true로 만든다.
+    private(set) var isAligned = true
     private(set) var isPlaying = false
     var loopEnabled = true
     private(set) var isMuted = false
-    /// 선택한 테이크(0부터) — 소리, In/Out, ⌥화살표 정렬의 대상
+    /// 선택한 테이크(0부터) — 소리, In/Out, ⌥화살표(그 테이크만 이동)의 대상
     private(set) var selectedIndex = 0
     /// 창 전체로 보는 테이크(0부터). nil이면 격자.
     private(set) var soloIndex: Int?
@@ -113,6 +116,7 @@ final class CompareModel {
         selectedIndex = 0
         soloIndex = nil
         currentTime = 0
+        isAligned = true
 
         if ignored > 0 {
             setStatus(String(localized: "\(movies.count)개 중 앞의 4개만 열었습니다 — 5번째부터는 무시했습니다"))
@@ -157,7 +161,7 @@ final class CompareModel {
         } else if failed > 0 {
             setStatus(String(localized: "\(takes.count)개 중 \(failed)개를 열지 못했습니다 — 나머지로 비교합니다"))
         } else {
-            setStatus(String(localized: "\(takes.count)개 열림 — 스페이스 재생, I/O 인·아웃, ⌥←→ 선택 테이크 1프레임 정렬, ⌘S 저장"))
+            setStatus(String(localized: "\(takes.count)개 열림 — 스페이스 재생, I/O 인·아웃, ⌥←→ 선택 테이크만 1프레임, ⌘S 저장"))
         }
     }
 
@@ -172,6 +176,7 @@ final class CompareModel {
             MainActor.assumeIsolated {
                 guard let self, self.isPlaying, self.seeksInFlight == 0 else { return }
                 self.currentTime = self.timelineTimeFromMaster() ?? self.currentTime
+                self.refreshPositions()
             }
         }
         endObserver = NotificationCenter.default.addObserver(
@@ -207,6 +212,7 @@ final class CompareModel {
         afterSeekActions = []
         takeScrubTarget = nil
         isDiagnosing = false
+        isAligned = true
         for take in takes { take.player?.replaceCurrentItem(with: nil) }
     }
 
@@ -218,8 +224,8 @@ final class CompareModel {
 
     func play() {
         guard masterTake != nil, !isDiagnosing else { return }
-        // 끝에 있으면 처음부터
-        if currentTime >= range - 0.01 { currentTime = 0 }
+        // 흩어져 있으면(currentTime = 0) 각자 In부터, 끝에 있으면 처음부터
+        if !isAligned || currentTime >= range - 0.01 { currentTime = 0 }
         startSynchronized(at: currentTime)
     }
 
@@ -227,6 +233,7 @@ final class CompareModel {
     private func startSynchronized(at t: Double) {
         pendingSeek = nil
         isPlaying = true
+        isAligned = true
         let hostClock = CMClockGetHostTimeClock()
         let startHost = CMTimeAdd(CMClockGetTime(hostClock), CMTime(value: 1, timescale: 10)) // 0.1초 뒤
         for take in readyTakes {
@@ -269,6 +276,7 @@ final class CompareModel {
             isPlaying = false
             pauseAll()
             currentTime = range
+            refreshPositions()
         }
     }
 
@@ -279,10 +287,12 @@ final class CompareModel {
 
     // MARK: - 탐색
 
-    /// 모든 테이크를 같은 t로 정확히 이동(각자 In + t). 끄는 중엔 앞선 이동이 끝날 때까지 마지막 값만 남긴다.
+    /// 모든 테이크를 같은 t로 정확히 이동(각자 In + t) — 공통 조작은 전부 여기로 와서 줄을 다시 세운다.
+    /// 끄는 중엔 앞선 이동이 끝날 때까지 마지막 값만 남긴다.
     func seekAll(to t: Double) {
         let t = min(max(0, t), range)
         currentTime = t
+        isAligned = true
         if seeksInFlight > 0 {
             pendingSeek = t
             return
@@ -300,6 +310,7 @@ final class CompareModel {
     private func seekFinished() {
         seeksInFlight = max(0, seeksInFlight - 1)
         guard seeksInFlight == 0 else { return }
+        refreshPositions()
         if let next = pendingSeek {
             pendingSeek = nil
             seekAll(to: next)
@@ -326,13 +337,61 @@ final class CompareModel {
         }
     }
 
-    /// 한 테이크만 t 위치로 정확히 다시 세운다.
-    private func seekTake(_ take: Take, to t: Double) {
+    /// 쌓인 일을 하는 도중에 부른다: 지금 시작한 이동이 끝나면 **바로 다음 차례로**(뒤에 쌓인 일보다 먼저) action.
+    private func nextWhenSettled(_ action: @escaping @MainActor () -> Void) {
+        if isSettled {
+            action()
+        } else {
+            afterSeekActions.insert(action, at: 0)
+        }
+    }
+
+    /// 공통 조작 준비: 진행 중 이동이 끝난 뒤, 칸 조작으로 흩어져 있으면 먼저 모두 자기 In(t = 0)에 줄 세우고 action.
+    private func whenAligned(_ action: @escaping @MainActor () -> Void) {
+        whenSettled { [weak self] in
+            guard let self else { return }
+            if self.isAligned {
+                action()
+            } else {
+                self.seekAll(to: 0)
+                self.nextWhenSettled(action)
+            }
+        }
+    }
+
+    /// 한 테이크의 플레이어만 원본 기준 `seconds`로 정확히 세운다.
+    private func seekPlayer(of take: Take, toAbsolute seconds: Double) {
         guard let player = take.player else { return }
         seeksInFlight += 1
-        player.seek(to: TimeFormat.cmTime(take.absoluteTime(at: t)), toleranceBefore: .zero, toleranceAfter: .zero) { [weak self] _ in
+        player.seek(to: TimeFormat.cmTime(seconds), toleranceBefore: .zero, toleranceAfter: .zero) { [weak self] _ in
             Task { @MainActor in self?.seekFinished() }
         }
+    }
+
+    /// 화면 표시용 `Take.position`을 플레이어 실제 시각으로 옮겨 적는다.
+    private func refreshPositions() {
+        for take in readyTakes {
+            guard let seconds = take.playerTime?.seconds, seconds.isFinite, abs(seconds - take.position) > 1e-7 else { continue }
+            take.position = seconds
+        }
+    }
+
+    /// 칸 조작이 줄을 흩뜨렸다 — 공통 t는 의미가 없어지므로 0으로(다음 공통 조작은 각자 In부터).
+    private func scatter() {
+        guard isAligned else { return }
+        isAligned = false
+        currentTime = 0
+    }
+
+    /// In/Out을 바꾼 뒤: 지금 모든 테이크가 우연히 자기 In + t에 서 있으면 줄 선 상태, 아니면 흩어진 상태.
+    private func updateAlignment() {
+        let t = currentTime
+        let aligned = readyTakes.allSatisfy { take in
+            guard let seconds = take.playerTime?.seconds, seconds.isFinite else { return false }
+            return abs(seconds - take.absoluteTime(at: t)) < take.frameDuration * 0.5
+        }
+        isAligned = aligned
+        if !aligned { currentTime = 0 }
     }
 
     /// 슬라이더를 잡고 놓을 때
@@ -355,7 +414,7 @@ final class CompareModel {
     func step(frames: Int) {
         guard !isDiagnosing else { return }
         if isPlaying { pause() }
-        whenSettled { [weak self] in self?.performFrameStep(frames) }
+        whenAligned { [weak self] in self?.performFrameStep(frames) }
     }
 
     private func performFrameStep(_ frames: Int) {
@@ -395,8 +454,9 @@ final class CompareModel {
                 self.currentTime = newT
                 // Out에 멈춰 있던 테이크가 다시 구간 안으로 들어왔으면 정확히 세운다.
                 for take in held where !take.isHeld(at: newT) {
-                    self.seekTake(take, to: newT)
+                    self.seekPlayer(of: take, toAbsolute: take.absoluteTime(at: newT))
                 }
+                self.refreshPositions()
             }
             self.runQueuedActions()
         }
@@ -416,7 +476,8 @@ final class CompareModel {
         if isPlaying { pause() }
         whenSettled { [weak self] in
             guard let self else { return }
-            self.seekAll(to: self.currentTime + seconds)
+            // 흩어져 있으면 각자 In(t = 0)에서 다시 줄 세워 1초
+            self.seekAll(to: (self.isAligned ? self.currentTime : 0) + seconds)
         }
     }
 
@@ -432,9 +493,9 @@ final class CompareModel {
         seekAll(to: range)
     }
 
-    // MARK: - In/Out·정렬
+    // MARK: - In/Out
 
-    /// I/O·정렬 공통 준비(칸 지정): 그 칸을 선택하고, 재생을 멈추고, 이동이 끝난 뒤 그 테이크로 action을 부른다.
+    /// I/O·칸 조작 공통 준비(칸 지정): 그 칸을 선택하고, 재생을 멈추고, 이동이 끝난 뒤 그 테이크로 action을 부른다.
     private func withTake(_ index: Int, _ action: @escaping @MainActor (Take) -> Void) {
         guard !isDiagnosing else { return }
         guard index >= 0, index < takes.count, takes[index].isReady else {
@@ -460,31 +521,33 @@ final class CompareModel {
     /// 플레이어가 서 있는 절대 시각(이동이 끝난 뒤 부른다)
     private func absoluteNow(_ take: Take) -> Double {
         let seconds = take.playerTime?.seconds ?? .nan
-        return seconds.isFinite ? seconds : take.absoluteTime(at: currentTime)
+        return seconds.isFinite ? seconds : take.position
     }
 
-    /// I: 선택 테이크의 In = 지금 보이는 프레임. 그 프레임이 t = 0이 된다.
+    /// I: 선택 테이크의 In = 그 테이크가 지금 보여주는 프레임(원본 기준 절대 시각). 다른 테이크·공통 t는 그대로.
     func markIn() {
         withSelectedTake { [weak self] take in self?.performMarkIn(take) }
     }
 
-    /// 칸 조작 줄 [In]: 그 테이크의 In = 지금 보이는 프레임
+    /// 칸 조작 줄 [In]
     func markIn(_ index: Int) {
         withTake(index) { [weak self] take in self?.performMarkIn(take) }
     }
 
     private func performMarkIn(_ take: Take) {
         let now = absoluteNow(take)
-        guard now < take.outPoint - InOut.epsilon else {
-            setStatus(String(localized: "In은 Out보다 앞이어야 합니다 — 테이크 \(take.index + 1)의 Out 앞으로 옮긴 뒤 I"))
-            return
+        var note = ""
+        if take.hasCustomOut, now >= take.outPoint - InOut.epsilon {
+            // In이 Out과 같거나 뒤 — Out을 지운다(Out을 다시 찾으라는 뜻).
+            note = " — " + String(localized: "Out(\(TimeFormat.clock(take.outPoint)))보다 뒤라 Out을 지웠습니다")
+            take.outPoint = take.info?.duration ?? take.outPoint
         }
         take.inPoint = now
-        inOutChanged(keepVisible: take, at: now)
-        setStatus(String(localized: "테이크 \(take.index + 1) In = \(TimeFormat.clock(now))") + offsetNote(take))
+        inOutChanged()
+        setStatus(String(localized: "테이크 \(take.index + 1) In = \(TimeFormat.clock(now))") + offsetNote(take) + note)
     }
 
-    /// O: 선택 테이크의 Out = 지금 보이는 프레임
+    /// O: 선택 테이크의 Out = 그 테이크가 지금 보여주는 프레임. In이 없으면 In = 0(처음)으로 본다.
     func markOut() {
         withSelectedTake { [weak self] take in self?.performMarkOut(take) }
     }
@@ -501,7 +564,7 @@ final class CompareModel {
             return
         }
         take.outPoint = max(now, take.inPoint)
-        inOutChanged(keepVisible: take, at: now)
+        inOutChanged()
         setStatus(String(localized: "테이크 \(take.index + 1) Out = \(TimeFormat.clock(now))"))
     }
 
@@ -528,12 +591,11 @@ final class CompareModel {
         withTake(index) { [weak self] take in self?.performClear(take, inPoint: true, outPoint: true) }
     }
 
-    /// In/Out 초기화. 지금 보이는 프레임은 그대로 둔다(t를 다시 계산).
+    /// In/Out 초기화. 표식만 지운다 — 화면은 그대로.
     private func performClear(_ take: Take, inPoint clearIn: Bool, outPoint clearOut: Bool) {
-        let now = absoluteNow(take)
         if clearIn { take.inPoint = 0 }
         if clearOut { take.outPoint = take.info?.duration ?? take.outPoint }
-        inOutChanged(keepVisible: take, at: now)
+        inOutChanged()
         switch (clearIn, clearOut) {
         case (true, true): setStatus(String(localized: "테이크 \(take.index + 1) In/Out 초기화"))
         case (true, false): setStatus(String(localized: "테이크 \(take.index + 1) In 초기화"))
@@ -547,86 +609,17 @@ final class CompareModel {
         if isPlaying { pause() }
         whenSettled { [weak self] in
             guard let self else { return }
-            let keep = self.selectedTake ?? self.referenceTake
-            let now = keep.map { self.absoluteNow($0) }
             for take in self.readyTakes { take.resetInOut() }
-            if let keep, let now {
-                self.inOutChanged(keepVisible: keep, at: now)
-            } else {
-                self.rebindMaster()
-                self.seekAll(to: self.currentTime)
-            }
+            self.inOutChanged()
             self.setStatus(String(localized: "모든 테이크의 In/Out을 초기화했습니다"))
         }
     }
 
-    /// In/Out이 바뀐 뒤: 시계 테이크를 다시 고르고, `take`가 지금 보는 프레임(`absolute`)이 그대로 보이도록 t를 다시 계산해 모두 세운다.
-    private func inOutChanged(keepVisible take: Take, at absolute: Double) {
+    /// In/Out이 바뀐 뒤: 시계 테이크를 다시 고르고 줄 선 상태인지 다시 본다. **아무 테이크도 옮기지 않는다.**
+    private func inOutChanged() {
         rebindMaster()
-        let t = min(max(0, absolute - take.inPoint), range)
-        seekAll(to: t)
-    }
-
-    /// ⌥← / ⌥→ (frames = ∓1), ⌥⇧← / ⌥⇧→ (seconds = ∓1): 선택 테이크만 옮긴다.
-    /// 그 테이크의 In을 같은 양만큼 옮겨서, 같은 t에서 다른 곳을 보이게 한다 — 재생해도 맞춘 정렬이 그대로다.
-    func nudgeSelected(frames: Int) {
-        withSelectedTake { [weak self] take in self?.performNudge(take, frames: frames, seconds: nil) }
-    }
-
-    func nudgeSelected(seconds: Double) {
-        withSelectedTake { [weak self] take in self?.performNudge(take, frames: 0, seconds: seconds) }
-    }
-
-    /// 칸 조작 줄 ◀ / ▶: 그 테이크만 한 프레임 (⌥←/⌥→와 같은 뜻)
-    func nudge(_ index: Int, frames: Int) {
-        withTake(index) { [weak self] take in self?.performNudge(take, frames: frames, seconds: nil) }
-    }
-
-    /// 칸 조작 줄 ◀◀ / ▶▶: 그 테이크만 1초 (⌥⇧←/⌥⇧→와 같은 뜻)
-    func nudge(_ index: Int, seconds: Double) {
-        withTake(index) { [weak self] take in self?.performNudge(take, frames: 0, seconds: seconds) }
-    }
-
-    private func performNudge(_ take: Take, frames: Int, seconds: Double?) {
-        guard let player = take.player, let item = player.currentItem else { return }
-        let fd = take.frameDuration
-        let delta = seconds ?? fd * Double(frames)
-        let t = currentTime
-        let wasHeld = take.isHeld(at: t)
-        let maxIn = max(0, take.outPoint - fd)
-        let target = take.inPoint + delta
-        guard target >= -fd * 0.01, target <= maxIn + fd * 0.01 else {
-            setStatus(delta < 0
-                ? String(localized: "테이크 \(take.index + 1): In이 이미 0이라 더 앞으로 못 옮깁니다 — 다른 테이크를 ⌥→로 옮기세요")
-                : String(localized: "테이크 \(take.index + 1): Out에 닿아 더 뒤로 못 옮깁니다"))
-            return
-        }
-        let newIn = min(max(0, target), maxIn)
-        let applied = newIn - take.inPoint
-        take.inPoint = newIn
-
-        rebindMaster()
-        // 범위가 줄어 t가 밖으로 나가면 전부 다시 세운다. 아니면 이 테이크만 움직인다(다른 테이크는 그대로).
-        let newT = min(t, range)
-        let canStep = seconds == nil && !wasHeld && !take.isHeld(at: newT)
-            && abs(applied - delta) < fd * 0.01
-            && (frames > 0 ? item.canStepForward : item.canStepBackward)
-        if newT < t - InOut.epsilon {
-            seekAll(to: newT)
-        } else if canStep {
-            // 화면은 step(byCount:)로 바로 한 프레임
-            let before = player.currentTime()
-            item.step(byCount: frames)
-            stepInFlight = true
-            Task { [weak self] in
-                await Self.waitUntilMoved([(player, before)])
-                self?.stepInFlight = false
-                self?.runQueuedActions()
-            }
-        } else {
-            seekTake(take, to: t)
-        }
-        setStatus(String(localized: "테이크 \(take.index + 1) 정렬 — In \(TimeFormat.clock(take.inPoint))") + offsetNote(take))
+        if currentTime > range { currentTime = range }
+        updateAlignment()
     }
 
     /// 상태줄용 ` · 오프셋 +3f` (첫 테이크가 아니면)
@@ -640,12 +633,46 @@ final class CompareModel {
         n > 0 ? "+\(n)" : "\(n)"
     }
 
-    // MARK: - 테이크 하나만 옮기기 (칸 조작 줄)
+    // MARK: - 테이크 하나만 탐색 (칸 조작 줄·⌥화살표)
+    //
+    // 그 테이크의 재생 위치만 옮긴다. In/Out은 건드리지 않고 다른 테이크도 그대로 — 줄이 흩어진다(isAligned = false).
+    // 정렬은 In에서만 나온다: 공통 조작을 하면 모두 자기 In + t로 다시 줄 선다.
 
-    /// 칸 아래 바를 끌 때: 그 테이크가 원본 기준 `seconds`(그 프레임의 시작으로 맞춤)를 보이도록 그 테이크의 In만 옮긴다.
-    /// In = seconds − t. 다른 테이크는 그대로 — 정렬이 바뀐다(⌥화살표와 같은 뜻).
-    /// In은 0 밑·(Out − 1프레임) 위로 가지 않는다. 끄는 중 쏟아지는 값은 앞 이동이 끝날 때까지 마지막 하나만 남긴다.
-    func scrubTake(_ index: Int, toAbsolute seconds: Double) {
+    /// ⌥← / ⌥→: 선택 테이크만 1프레임
+    func moveSelected(frames: Int) {
+        withSelectedTake { [weak self] take in self?.performMove(take, frames: frames) }
+    }
+
+    /// ⌥⇧← / ⌥⇧→: 선택 테이크만 1초
+    func moveSelected(seconds: Double) {
+        withSelectedTake { [weak self] take in self?.performMove(take, seconds: seconds) }
+    }
+
+    /// 칸 조작 줄 ◀ / ▶: 그 테이크만 1프레임
+    func moveTake(_ index: Int, frames: Int) {
+        withTake(index) { [weak self] take in self?.performMove(take, frames: frames) }
+    }
+
+    /// 칸 조작 줄 ◀◀ / ▶▶: 그 테이크만 1초
+    func moveTake(_ index: Int, seconds: Double) {
+        withTake(index) { [weak self] take in self?.performMove(take, seconds: seconds) }
+    }
+
+    /// 칸 조작 줄 |◀: 그 테이크의 In으로(In이 없으면 처음)
+    func goToTakeIn(_ index: Int) {
+        withTake(index) { [weak self] take in self?.performTakeSeek(take, toAbsolute: take.inPoint) }
+    }
+
+    /// 칸 조작 줄 ▶|: 그 테이크의 Out으로(Out이 없으면 마지막 프레임)
+    func goToTakeOut(_ index: Int) {
+        withTake(index) { [weak self] take in
+            self?.performTakeSeek(take, toAbsolute: take.hasCustomOut ? take.outPoint : take.fileLastFrameStart)
+        }
+    }
+
+    /// 칸 아래 바를 끌 때: 그 테이크만 원본 기준 `seconds`(그 프레임의 시작으로 맞춤)로.
+    /// 끄는 중 쏟아지는 값은 앞 이동이 끝날 때까지 마지막 하나만 남긴다.
+    func seekTake(_ index: Int, toAbsolute seconds: Double) {
         guard !isDiagnosing, index >= 0, index < takes.count, takes[index].isReady else { return }
         if selectedIndex != index { select(index) }
         if isPlaying { pause() }
@@ -656,64 +683,76 @@ final class CompareModel {
             guard let self, let target = self.takeScrubTarget else { return }
             self.takeScrubTarget = nil
             guard target.index < self.takes.count else { return }
-            self.performTakeScrub(self.takes[target.index], toAbsolute: target.seconds)
+            self.performTakeSeek(self.takes[target.index], toAbsolute: target.seconds)
         }
     }
 
-    /// 칸 아래 바를 잡을 때(began = true)·놓을 때(false). 잡으면 재생을 멈추고, 놓으면 진행 중 이동이 끝난 뒤 모두 같은 t로 다시 세운다.
+    /// 칸 아래 바를 잡을 때: 그 칸을 고르고 재생을 멈춘다. 놓을 때는 아무것도 하지 않는다(그 자리에 둔다).
     func takeScrubbing(_ index: Int, began: Bool) {
-        guard !isDiagnosing, index >= 0, index < takes.count, takes[index].isReady else { return }
-        if began {
-            if selectedIndex != index { select(index) }
-            if isPlaying { pause() }
-        } else {
-            whenSettled { [weak self] in
-                guard let self else { return }
-                self.seekAll(to: self.currentTime)
-            }
-        }
+        guard began, !isDiagnosing, index >= 0, index < takes.count, takes[index].isReady else { return }
+        if selectedIndex != index { select(index) }
+        if isPlaying { pause() }
     }
 
-    /// 칸 조작 줄 |◀: 그 테이크만 처음(원본 0)으로. 공통 위치 t가 0보다 뒤면 In이 0에 걸려 t까지만 간다.
-    func goToTakeStart(_ index: Int) {
-        withTake(index) { [weak self] take in self?.performTakeScrub(take, toAbsolute: 0) }
-    }
-
-    /// 칸 조작 줄 ▶|: 그 테이크만 끝(Out 또는 마지막 프레임)으로
-    func goToTakeEnd(_ index: Int) {
-        withTake(index) { [weak self] take in self?.performTakeScrub(take, toAbsolute: take.info?.duration ?? 0) }
-    }
-
-    private func performTakeScrub(_ take: Take, toAbsolute seconds: Double) {
-        guard let info = take.info else { return }
+    private func performMove(_ take: Take, frames: Int) {
+        guard frames != 0, let player = take.player, let item = player.currentItem else { return }
         let fd = take.frameDuration
-        let t = currentTime
-        // 원본 범위로 묶고 그 프레임의 시작에 맞춘다.
-        // 마지막 프레임 시작은 프레임 수를 반올림해 구한다 — 길이가 프레임 배수보다 조금 짧은 파일이 있다
-        // (표본 B: 44프레임인데 길이 1.833008 < 44/24). `길이 − 1프레임`을 내림하면 마지막 바로 앞 프레임이 된다.
-        let frameCount = max(1, (info.duration / fd).rounded())
-        var lastStart = (frameCount - 1) * fd
-        if lastStart >= info.duration { lastStart = max(0, lastStart - fd) }
-        let wanted = ((min(max(0, seconds), lastStart) / fd) + 1e-6).rounded(.down) * fd
-        let maxIn = take.hasCustomOut ? max(0, take.outPoint - fd) : lastStart
-        let newIn = min(max(0, wanted - t), maxIn)
-        let clampedLow = wanted - t < -fd * 0.01
-        if abs(newIn - take.inPoint) > InOut.epsilon {
-            take.inPoint = newIn
-            rebindMaster()
-            // 범위가 줄어 t가 밖으로 나가면 전부 다시 세운다. 아니면 이 테이크만.
-            let newT = min(t, range)
-            if newT < t - InOut.epsilon {
-                seekAll(to: newT)
-            } else {
-                seekTake(take, to: t)
+        let now = absoluteNow(take)
+        let target = now + fd * Double(frames)
+        guard target >= -fd * 0.01, target <= take.fileLastFrameStart + fd * 0.01 else {
+            setStatus(edgeNote(take, forward: frames > 0))
+            return
+        }
+        scatter()
+        if frames > 0 ? item.canStepForward : item.canStepBackward {
+            // step(byCount:)는 자기 프레임 하나만큼 정확히 움직인다(반영까지 약 2ms — 끝날 때까지 다음 이동을 묶어 둔다).
+            let before = player.currentTime()
+            item.step(byCount: frames)
+            stepInFlight = true
+            Task { [weak self] in
+                await Self.waitUntilMoved([(player, before)])
+                guard let self else { return }
+                self.stepInFlight = false
+                self.refreshPositions()
+                self.runQueuedActions()
             }
-        }
-        if clampedLow {
-            setStatus(String(localized: "테이크 \(take.index + 1): In이 0이라 공통 위치(\(TimeFormat.clock(t))) 앞은 못 봅니다 — 공통 위치를 앞으로 옮긴 뒤 다시"))
         } else {
-            setStatus(String(localized: "테이크 \(take.index + 1) 이동 — In \(TimeFormat.clock(take.inPoint))") + offsetNote(take))
+            seekPlayer(of: take, toAbsolute: take.frameStart(near: target))
         }
+        setStatus(positionNote(take, at: take.frameStart(near: target)))
+    }
+
+    private func performMove(_ take: Take, seconds: Double) {
+        let now = absoluteNow(take)
+        let target = take.frameStart(near: now + seconds)
+        guard abs(target - take.frameStart(near: now)) > InOut.epsilon else {
+            setStatus(edgeNote(take, forward: seconds > 0))
+            return
+        }
+        scatter()
+        seekPlayer(of: take, toAbsolute: target)
+        setStatus(positionNote(take, at: target))
+    }
+
+    private func performTakeSeek(_ take: Take, toAbsolute seconds: Double) {
+        let target = take.frameStart(near: seconds)
+        if abs(target - absoluteNow(take)) > InOut.epsilon {
+            scatter()
+            seekPlayer(of: take, toAbsolute: target)
+        }
+        setStatus(positionNote(take, at: target))
+    }
+
+    /// `테이크 2 위치 00:00.21 (5f)` — 원본 기준
+    private func positionNote(_ take: Take, at seconds: Double) -> String {
+        let frame = Int((seconds / take.frameDuration + 1e-6).rounded(.down))
+        return String(localized: "테이크 \(take.index + 1) 위치 \(TimeFormat.clock(seconds)) (\(frame)f)")
+    }
+
+    private func edgeNote(_ take: Take, forward: Bool) -> String {
+        forward
+            ? String(localized: "테이크 \(take.index + 1): 이미 마지막 프레임입니다")
+            : String(localized: "테이크 \(take.index + 1): 이미 처음입니다")
     }
 
     /// 칸 조작 줄 🔊: 이 테이크 소리만 켠다(하나만). 전체 음소거 중이면 푼다.
@@ -737,11 +776,18 @@ final class CompareModel {
             guard let self else { return }
             self.isDiagnosing = true
             let t = self.currentTime
+            let wasAligned = self.isAligned
+            let positions = self.readyTakes.map { ($0, self.absoluteNow($0)) }
             Task { [weak self] in
                 guard let self else { return }
                 let result = await self.selfTestRoundTrips(10)
                 self.isDiagnosing = false
-                self.seekAll(to: t)
+                if wasAligned {
+                    self.seekAll(to: t)
+                } else {
+                    // 흩어진 채였으면 각 테이크를 원래 자리로
+                    for (take, seconds) in positions { self.seekPlayer(of: take, toAbsolute: seconds) }
+                }
                 self.setStatus(result)
             }
         }

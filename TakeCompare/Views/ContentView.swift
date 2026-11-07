@@ -99,10 +99,12 @@ struct ContentView: View {
             .help(String(localized: "재생/정지 (스페이스)"))
             .disabled(model.readyTakes.isEmpty)
 
-            // t / 범위 (In 기준 상대 시각)
-            Text(verbatim: "\(TimeFormat.clock(model.currentTime)) / \(TimeFormat.clock(model.range))")
+            // t / 범위 (In 기준 상대 시각). 칸 조작으로 흩어져 있으면 t 자리에 —
+            Text(verbatim: "\(model.isAligned ? TimeFormat.clock(model.currentTime) : "—") / \(TimeFormat.clock(model.range))")
                 .font(.system(.body, design: .monospaced))
-                .help(String(localized: "In 기준 시각 / 범위(가장 긴 In~Out)"))
+                .help(model.isAligned
+                      ? String(localized: "In 기준 시각 / 범위(가장 긴 In~Out)")
+                      : String(localized: "칸 조작으로 줄이 흩어짐 — 재생·슬라이더·← →를 쓰면 각자 In 기준으로 다시 맞춘다"))
             Slider(
                 value: Binding(
                     get: { model.currentTime },

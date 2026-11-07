@@ -110,8 +110,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             switch (option, shift) {
             case (false, false): model.step(frames: sign)                           // 모든 테이크 1프레임
             case (false, true): model.step(seconds: Double(sign))                   // 모든 테이크 1초
-            case (true, false): model.nudgeSelected(frames: sign)                   // 선택 테이크만 1프레임
-            case (true, true): model.nudgeSelected(seconds: Double(sign))           // 선택 테이크만 1초
+            case (true, false): model.moveSelected(frames: sign)                    // 선택 테이크 위치만 1프레임 (In/Out 불변)
+            case (true, true): model.moveSelected(seconds: Double(sign))            // 선택 테이크 위치만 1초 (In/Out 불변)
             }
             return true
         default: break
@@ -183,10 +183,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     @objc func clearIn(_ sender: Any?) { model.clearIn() }
     @objc func clearOut(_ sender: Any?) { model.clearOut() }
     @objc func clearAllInOut(_ sender: Any?) { model.clearAllInOut() }
-    @objc func nudgeBackFrame(_ sender: Any?) { model.nudgeSelected(frames: -1) }
-    @objc func nudgeForwardFrame(_ sender: Any?) { model.nudgeSelected(frames: 1) }
-    @objc func nudgeBackSecond(_ sender: Any?) { model.nudgeSelected(seconds: -1) }
-    @objc func nudgeForwardSecond(_ sender: Any?) { model.nudgeSelected(seconds: 1) }
+    @objc func moveBackFrame(_ sender: Any?) { model.moveSelected(frames: -1) }
+    @objc func moveForwardFrame(_ sender: Any?) { model.moveSelected(frames: 1) }
+    @objc func moveBackSecond(_ sender: Any?) { model.moveSelected(seconds: -1) }
+    @objc func moveForwardSecond(_ sender: Any?) { model.moveSelected(seconds: 1) }
     @objc func runStepSelfTest(_ sender: Any?) { model.runStepSelfTest() }
 
     func validateMenuItem(_ item: NSMenuItem) -> Bool {
@@ -201,8 +201,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             }
             return hasReady
         case #selector(markIn(_:)), #selector(markOut(_:)), #selector(clearIn(_:)), #selector(clearOut(_:)),
-             #selector(nudgeBackFrame(_:)), #selector(nudgeForwardFrame(_:)),
-             #selector(nudgeBackSecond(_:)), #selector(nudgeForwardSecond(_:)):
+             #selector(moveBackFrame(_:)), #selector(moveForwardFrame(_:)),
+             #selector(moveBackSecond(_:)), #selector(moveForwardSecond(_:)):
             return model.selectedTake != nil && !model.isDiagnosing
         case #selector(runStepSelfTest(_:)):
             return hasReady && !model.isDiagnosing

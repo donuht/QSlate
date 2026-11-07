@@ -85,7 +85,8 @@ struct TakeCell: View {
 
 // MARK: - 칸 조작 줄
 
-/// 영상 바로 아래 조작 줄. 모든 버튼은 **이 테이크만** 움직이고, 누르면 이 칸이 선택된다.
+/// 영상 바로 아래 조작 줄. 이동 버튼·바는 **이 테이크의 재생 위치만** 옮긴다(In/Out·다른 테이크는 그대로 — 자유 탐색).
+/// 누르면 이 칸이 선택된다. 줄은 공통 조작(재생·슬라이더·← →)을 하면 각자 In 기준으로 다시 선다.
 ///
 ///     [00:01.25]  |◀ ◀◀ ◀ ▶ ▶▶ ▶|   [In 00:00.50] +3f [Out 00:03.20] ↺   🔊 ⤢
 ///     ──────────[■■■■■■■■■■■■■■|■■■]──────────   ← 자기 타임라인 바(끌어서 스크럽)
@@ -104,18 +105,18 @@ struct TakeStrip: View {
                     duration: info.duration,
                     inPoint: take.inPoint,
                     outPoint: take.outPoint,
-                    position: take.absoluteTime(at: model.currentTime),
+                    position: take.position,
                     onScrub: { phase in
                         switch phase {
                         case .began: model.takeScrubbing(index, began: true)
-                        case .moved(let seconds): model.scrubTake(index, toAbsolute: seconds)
+                        case .moved(let seconds): model.seekTake(index, toAbsolute: seconds)
                         case .ended: model.takeScrubbing(index, began: false)
                         }
                     }
                 )
                 .frame(height: 10)
                 .disabled(disabled)
-                .help(String(localized: "끌어서 이 테이크만 이동 (정렬이 바뀝니다)"))
+                .help(String(localized: "끌어서 이 테이크 위치만 이동 (In/Out은 그대로)"))
             }
         }
         .padding(.horizontal, 2)
@@ -126,26 +127,26 @@ struct TakeStrip: View {
     private var buttonRow: some View {
         HStack(spacing: 2) {
             // 이 테이크의 절대 시각(원본 기준)
-            Text(verbatim: TimeFormat.clock(take.absoluteTime(at: model.currentTime)))
+            Text(verbatim: TimeFormat.clock(take.position))
                 .font(.system(.callout, design: .monospaced))
                 .monospacedDigit()
                 .help(String(localized: "이 테이크의 시각 (원본 기준)"))
                 .padding(.trailing, 6)
                 .fixedSize()
 
-            stripButton("backward.end", String(localized: "이 테이크만 처음으로")) { model.goToTakeStart(index) }
-            stripButton("backward", String(localized: "이 테이크만 1초 뒤로 (⌥⇧←)")) { model.nudge(index, seconds: -1) }
-            stripButton("backward.frame", String(localized: "이 테이크만 1프레임 뒤로 — 길게 누르면 반복 (⌥←)"), repeats: true) { model.nudge(index, frames: -1) }
-            stripButton("forward.frame", String(localized: "이 테이크만 1프레임 앞으로 — 길게 누르면 반복 (⌥→)"), repeats: true) { model.nudge(index, frames: 1) }
-            stripButton("forward", String(localized: "이 테이크만 1초 앞으로 (⌥⇧→)")) { model.nudge(index, seconds: 1) }
-            stripButton("forward.end", String(localized: "이 테이크만 끝으로")) { model.goToTakeEnd(index) }
+            stripButton("backward.end", String(localized: "이 테이크 In으로 (In이 없으면 처음)")) { model.goToTakeIn(index) }
+            stripButton("backward", String(localized: "이 테이크 위치만 1초 뒤로 (⌥⇧←)")) { model.moveTake(index, seconds: -1) }
+            stripButton("backward.frame", String(localized: "이 테이크 위치만 1프레임 뒤로 — 길게 누르면 반복 (⌥←)"), repeats: true) { model.moveTake(index, frames: -1) }
+            stripButton("forward.frame", String(localized: "이 테이크 위치만 1프레임 앞으로 — 길게 누르면 반복 (⌥→)"), repeats: true) { model.moveTake(index, frames: 1) }
+            stripButton("forward", String(localized: "이 테이크 위치만 1초 앞으로 (⌥⇧→)")) { model.moveTake(index, seconds: 1) }
+            stripButton("forward.end", String(localized: "이 테이크 Out으로 (Out이 없으면 끝)")) { model.goToTakeOut(index) }
 
             Spacer(minLength: 8)
 
             inOutButton(
                 title: "In",
                 value: take.hasCustomIn ? TimeFormat.clock(take.inPoint) : nil,
-                help: String(localized: "지금 보이는 프레임을 이 테이크의 In으로 (I)")
+                help: String(localized: "이 테이크가 지금 보여주는 프레임을 In으로 (I) — 공통 재생은 각자 In부터 같이 간다")
             ) { model.markIn(index) }
             let offset = model.offsetFrames(of: take)
             if offset != 0 {
@@ -158,7 +159,7 @@ struct TakeStrip: View {
             inOutButton(
                 title: "Out",
                 value: take.hasCustomOut ? TimeFormat.clock(take.outPoint) : nil,
-                help: String(localized: "지금 보이는 프레임을 이 테이크의 Out으로 (O)")
+                help: String(localized: "이 테이크가 지금 보여주는 프레임을 Out으로 (O)")
             ) { model.markOut(index) }
             stripButton("arrow.counterclockwise", String(localized: "이 테이크 In/Out 초기화 (⌥I · ⌥O)")) { model.clearInOut(index) }
                 .disabled(disabled || !(take.hasCustomIn || take.hasCustomOut))

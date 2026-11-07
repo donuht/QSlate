@@ -82,6 +82,7 @@ final class Take: Identifiable {
         self.player = player
         inPoint = 0
         outPoint = info.duration
+        position = 0
     }
 
     func resetInOut() {
@@ -106,8 +107,27 @@ final class Take: Identifiable {
         return min(outPoint, info.duration - frameDuration)
     }
 
+    /// 원본 마지막 프레임의 시작 시각. 프레임 수는 반올림해 구한다 — 길이가 프레임 배수보다 조금 짧은 파일이 있다
+    /// (표본 B: 44프레임인데 길이 1.833008 < 44/24). `길이 − 1프레임`을 내림하면 마지막 바로 앞 프레임이 된다.
+    var fileLastFrameStart: Double {
+        guard let info else { return 0 }
+        let fd = frameDuration
+        let frameCount = max(1, (info.duration / fd).rounded())
+        let lastStart = (frameCount - 1) * fd
+        return lastStart >= info.duration ? max(0, lastStart - fd) : lastStart
+    }
+
+    /// 원본 범위(0 ~ 마지막 프레임 시작)로 묶고 그 프레임의 시작에 맞춘 시각
+    func frameStart(near seconds: Double) -> Double {
+        let fd = frameDuration
+        return ((min(max(0, seconds), fileLastFrameStart) / fd) + 1e-6).rounded(.down) * fd
+    }
+
     /// 플레이어가 지금 실제로 서 있는 절대 시각
     var playerTime: CMTime? { player?.currentTime() }
+
+    /// 화면 표시용 위치(초, 원본 기준). 모델이 이동이 끝날 때·재생 중에 `playerTime`에서 옮겨 적는다(AVPlayer 시각은 관찰되지 않아서).
+    var position: Double = 0
 
     /// Out은 플레이어의 forwardPlaybackEndTime으로 건다 — 재생이 Out에서 저절로 멈추고 끝 알림이 온다.
     private func applyOutPoint() {

@@ -1,12 +1,12 @@
 {
   "sourceLanguage": "ko",
   "strings": {
-    "%lld개 열림 — 스페이스 재생, I/O 인·아웃, ⌥←→ 선택 테이크 1프레임 정렬, ⌘S 저장": {
+    "%lld개 열림 — 스페이스 재생, I/O 인·아웃, ⌥←→ 선택 테이크만 1프레임, ⌘S 저장": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld takes open — Space plays, I/O sets In/Out, ⌥←/→ nudges the selected take one frame, ⌘S saves"
+            "value": "%lld takes open — Space plays, I/O sets In/Out, ⌥←/→ moves only the selected take one frame, ⌘S saves"
           }
         }
       }
@@ -111,16 +111,6 @@
         }
       }
     },
-    "In은 Out보다 앞이어야 합니다 — 테이크 %lld의 Out 앞으로 옮긴 뒤 I": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "In must be before Out — move take %lld before its Out, then press I"
-          }
-        }
-      }
-    },
     "Out 설정 (선택한 테이크)": {
       "localizations": {
         "en": {
@@ -137,6 +127,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Clear Out (Selected Take)"
+          }
+        }
+      }
+    },
+    "Out(%@)보다 뒤라 Out을 지웠습니다": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "at or after the Out (%@), so the Out was cleared"
           }
         }
       }
@@ -251,12 +251,12 @@
         }
       }
     },
-    "끌어서 이 테이크만 이동 (정렬이 바뀝니다)": {
+    "끌어서 이 테이크 위치만 이동 (In/Out은 그대로)": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Drag to move only this take (changes the alignment)"
+            "value": "Drag to move only this take (In/Out stay put)"
           }
         }
       }
@@ -421,52 +421,52 @@
         }
       }
     },
+    "선택한 테이크 위치만 1초 뒤로": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Selected Take Only: Back 1 Second"
+          }
+        }
+      }
+    },
+    "선택한 테이크 위치만 1초 앞으로": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Selected Take Only: Forward 1 Second"
+          }
+        }
+      }
+    },
+    "선택한 테이크 위치만 1프레임 뒤로": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Selected Take Only: Back 1 Frame"
+          }
+        }
+      }
+    },
+    "선택한 테이크 위치만 1프레임 앞으로": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Selected Take Only: Forward 1 Frame"
+          }
+        }
+      }
+    },
     "선택한 테이크가 없습니다 — 칸을 클릭하거나 숫자키로 고르세요": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "No take selected — click a cell or press a number key"
-          }
-        }
-      }
-    },
-    "선택한 테이크만 1초 뒤로": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Selected Take Back 1 Second"
-          }
-        }
-      }
-    },
-    "선택한 테이크만 1초 앞으로": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Selected Take Forward 1 Second"
-          }
-        }
-      }
-    },
-    "선택한 테이크만 1프레임 뒤로": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Selected Take Back 1 Frame"
-          }
-        }
-      }
-    },
-    "선택한 테이크만 1프레임 앞으로": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Selected Take Forward 1 Frame"
           }
         }
       }
@@ -581,6 +581,26 @@
         }
       }
     },
+    "이 테이크 In으로 (In이 없으면 처음)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Go to this take’s In (or the start)"
+          }
+        }
+      }
+    },
+    "이 테이크 Out으로 (Out이 없으면 끝)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Go to this take’s Out (or the end)"
+          }
+        }
+      }
+    },
     "이 테이크 소리 켜기 (하나만)": {
       "localizations": {
         "en": {
@@ -591,62 +611,62 @@
         }
       }
     },
-    "이 테이크만 1초 뒤로 (⌥⇧←)": {
+    "이 테이크 위치만 1초 뒤로 (⌥⇧←)": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Only this take back 1 second (⌥⇧←)"
+            "value": "Move only this take back 1 second (⌥⇧←)"
           }
         }
       }
     },
-    "이 테이크만 1초 앞으로 (⌥⇧→)": {
+    "이 테이크 위치만 1초 앞으로 (⌥⇧→)": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Only this take forward 1 second (⌥⇧→)"
+            "value": "Move only this take forward 1 second (⌥⇧→)"
           }
         }
       }
     },
-    "이 테이크만 1프레임 뒤로 — 길게 누르면 반복 (⌥←)": {
+    "이 테이크 위치만 1프레임 뒤로 — 길게 누르면 반복 (⌥←)": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Only this take back 1 frame — hold to repeat (⌥←)"
+            "value": "Move only this take back 1 frame — hold to repeat (⌥←)"
           }
         }
       }
     },
-    "이 테이크만 1프레임 앞으로 — 길게 누르면 반복 (⌥→)": {
+    "이 테이크 위치만 1프레임 앞으로 — 길게 누르면 반복 (⌥→)": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Only this take forward 1 frame — hold to repeat (⌥→)"
+            "value": "Move only this take forward 1 frame — hold to repeat (⌥→)"
           }
         }
       }
     },
-    "이 테이크만 끝으로": {
+    "이 테이크가 지금 보여주는 프레임을 In으로 (I) — 공통 재생은 각자 In부터 같이 간다": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Move only this take to its end"
+            "value": "Set In to the frame this take is showing (I) — shared playback starts every take from its In"
           }
         }
       }
     },
-    "이 테이크만 처음으로": {
+    "이 테이크가 지금 보여주는 프레임을 Out으로 (O)": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Move only this take to its start"
+            "value": "Set Out to the frame this take is showing (O)"
           }
         }
       }
@@ -801,26 +821,6 @@
         }
       }
     },
-    "지금 보이는 프레임을 이 테이크의 In으로 (I)": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Set this take's In to the frame on screen (I)"
-          }
-        }
-      }
-    },
-    "지금 보이는 프레임을 이 테이크의 Out으로 (O)": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Set this take's Out to the frame on screen (O)"
-          }
-        }
-      }
-    },
     "지금 프레임을 모든 테이크에서 PNG로 저장 (⌘S)": {
       "localizations": {
         "en": {
@@ -877,6 +877,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Minimize"
+          }
+        }
+      }
+    },
+    "칸 조작으로 줄이 흩어짐 — 재생·슬라이더·← →를 쓰면 각자 In 기준으로 다시 맞춘다": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Takes moved individually, out of line — play, the slider or ←/→ lines them up again from each In"
           }
         }
       }
@@ -941,52 +951,32 @@
         }
       }
     },
-    "테이크 %lld 이동 — In %@": {
+    "테이크 %lld 위치 %@ (%lldf)": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Take %1$lld moved — In %2$@"
+            "value": "Take %1$lld at %2$@ (frame %3$lld)"
           }
         }
       }
     },
-    "테이크 %lld 정렬 — In %@": {
+    "테이크 %lld: 이미 마지막 프레임입니다": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Take %lld aligned — In %@"
+            "value": "Take %lld: already at the last frame"
           }
         }
       }
     },
-    "테이크 %lld: In이 0이라 공통 위치(%@) 앞은 못 봅니다 — 공통 위치를 앞으로 옮긴 뒤 다시": {
+    "테이크 %lld: 이미 처음입니다": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Take %1$lld: In is already 0, so it cannot go before the shared position (%2$@) — move the shared position back, then try again"
-          }
-        }
-      }
-    },
-    "테이크 %lld: In이 이미 0이라 더 앞으로 못 옮깁니다 — 다른 테이크를 ⌥→로 옮기세요": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Take %lld: In is already 0, cannot move earlier — move the other takes with ⌥→ instead"
-          }
-        }
-      }
-    },
-    "테이크 %lld: Out에 닿아 더 뒤로 못 옮깁니다": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Take %lld: reached its Out, cannot move later"
+            "value": "Take %lld: already at the start"
           }
         }
       }
