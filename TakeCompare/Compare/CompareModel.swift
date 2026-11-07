@@ -38,6 +38,11 @@ final class CompareModel {
     @ObservationIgnored private var endObserver: NSObjectProtocol?
     @ObservationIgnored private var seeksInFlight = 0
     @ObservationIgnored private var pendingSeek: Double?
+    /// 공통 재생 출발 번호 — 출발 준비(seek) 중에 정지·재출발이 끼어들면 늦게 온 준비는 버린다.
+    @ObservationIgnored private var playGeneration = 0
+    /// 출발 준비 중인 플레이어들과 아직 안 끝난 seek 수.
+    @ObservationIgnored private var launchRunners: [(Take, AVPlayer, CMTime)] = []
+    @ObservationIgnored private var launchRemaining = 0
     /// step(byCount:)가 아직 반영되지 않았다(실측 약 2ms). 반영 전에 다음 step을 부르면 앞의 것이 묻힌다(3번 눌러 1프레임만 감).
     @ObservationIgnored private var stepInFlight = false
     /// 진행 중인 이동이 다 끝난 뒤에 차례로 할 일(프레임 이동·In/Out·저장)
@@ -241,26 +246,55 @@ final class CompareModel {
     }
 
     /// 모든 플레이어를 같은 host time에 출발시킨다. 각 테이크의 출발 시각은 자기 In + t.
+    /// 출발 전에 모든 플레이어를 자기 출발 시각으로 **먼저 정확히 세운다** — Out(forwardPlaybackEndTime)이나 파일 끝에
+    /// 서 있는 플레이어는 setRate(_:time:atHostTime:)만으로는 움직이지 않는다(2026-11-07 실측: rate=1인데 위치가 Out에 머묾).
     private func startSynchronized(at t: Double) {
         pendingSeek = nil
         isPlaying = true
         isAligned = true
-        let hostClock = CMClockGetHostTimeClock()
-        let startHost = CMTimeAdd(CMClockGetTime(hostClock), CMTime(value: 1, timescale: 10)) // 0.1초 뒤
+        currentTime = t
+        playGeneration += 1
+        let generation = playGeneration
+
+        var runners: [(Take, AVPlayer, CMTime)] = []
         for take in readyTakes {
             guard let player = take.player else { continue }
+            let itemTime = TimeFormat.cmTime(take.absoluteTime(at: t))
+            player.pause()
             if t >= take.span - 0.0005 {
                 // 이 테이크는 이미 자기 Out을 넘었다 — Out 프레임에 둔다.
-                player.pause()
-                player.seek(to: TimeFormat.cmTime(take.absoluteTime(at: t)), toleranceBefore: .zero, toleranceAfter: .zero)
+                player.seek(to: itemTime, toleranceBefore: .zero, toleranceAfter: .zero)
                 continue
             }
-            let itemTime = TimeFormat.cmTime(take.absoluteTime(at: t))
+            runners.append((take, player, itemTime))
+        }
+        guard !runners.isEmpty else { return }
+
+        launchRunners = runners
+        launchRemaining = runners.count
+        for (_, player, itemTime) in runners {
+            player.seek(to: itemTime, toleranceBefore: .zero, toleranceAfter: .zero) { [weak self] _ in
+                Task { @MainActor in
+                    guard let self else { return }
+                    // 그새 정지·재출발이 있었으면 이 출발은 버린다.
+                    guard self.playGeneration == generation else { return }
+                    self.launchRemaining -= 1
+                    guard self.launchRemaining == 0, self.isPlaying else { return }
+                    self.launch()
+                }
+            }
+        }
+    }
+
+    /// 준비가 끝난 플레이어들을 0.1초 뒤 같은 host time에 출발시킨다.
+    private func launch() {
+        let hostClock = CMClockGetHostTimeClock()
+        let startHost = CMTimeAdd(CMClockGetTime(hostClock), CMTime(value: 1, timescale: 10))
+        for (_, player, itemTime) in launchRunners {
             if player.status == .readyToPlay {
                 player.setRate(1, time: itemTime, atHostTime: startHost)
             } else {
                 // 아직 준비 전이면 동기 시작을 쓸 수 없다(예외). 일반 재생으로 대신한다.
-                player.seek(to: itemTime, toleranceBefore: .zero, toleranceAfter: .zero)
                 player.play()
             }
         }
@@ -269,6 +303,7 @@ final class CompareModel {
     func pause() {
         guard isPlaying else { return }
         isPlaying = false
+        playGeneration += 1
         pauseAll()
         // 멈춘 뒤 모두 같은 t로 다시 맞춘다(프레임 단위로 일치).
         seekAll(to: timelineTimeFromMaster() ?? currentTime)
