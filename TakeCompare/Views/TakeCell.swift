@@ -88,7 +88,7 @@ struct TakeCell: View {
 /// 영상 바로 아래 조작 줄. 이동 버튼·바는 **이 테이크의 재생 위치만** 옮긴다(In/Out·다른 테이크는 그대로 — 자유 탐색).
 /// 누르면 이 칸이 선택된다. 줄은 공통 조작(재생·슬라이더·← →)을 하면 각자 In 기준으로 다시 선다.
 ///
-///     [00:01.25]  |◀ ◀◀ ◀ ▶ ▶▶ ▶|   [In 00:00.50] +3f [Out 00:03.20] ↺   🔊 ⤢
+///     ▶ [00:01.25]  |◀ ◀◀ ◀ ▶ ▶▶ ▶|   [In 00:00.50] +3f [Out 00:03.20] ↺   🔊 ⤢   (맨 앞 ▶/❚❚ = 이 테이크만 재생/정지)
 ///     ──────────[■■■■■■■■■■■■■■|■■■]──────────   ← 자기 타임라인 바(끌어서 스크럽)
 struct TakeStrip: View {
     let take: Take
@@ -126,6 +126,11 @@ struct TakeStrip: View {
 
     private var buttonRow: some View {
         HStack(spacing: 2) {
+            // 이 테이크만 재생/정지 (다른 테이크는 그대로)
+            stripButton(take.isSoloPlaying ? "pause.fill" : "play.fill",
+                        String(localized: "이 테이크만 재생/정지"),
+                        highlighted: take.isSoloPlaying) { model.togglePlayTake(index) }
+
             // 이 테이크의 절대 시각(원본 기준)
             Text(verbatim: TimeFormat.clock(take.position))
                 .font(.system(.callout, design: .monospaced))

@@ -83,6 +83,7 @@ final class Take: Identifiable {
         inPoint = 0
         outPoint = info.duration
         position = 0
+        isSoloPlaying = false
     }
 
     func resetInOut() {
@@ -128,6 +129,9 @@ final class Take: Identifiable {
 
     /// 화면 표시용 위치(초, 원본 기준). 모델이 이동이 끝날 때·재생 중에 `playerTime`에서 옮겨 적는다(AVPlayer 시각은 관찰되지 않아서).
     var position: Double = 0
+
+    /// 칸 ▶로 이 테이크만 재생 중인가(공통 재생 `isPlaying`과 별개). 모델만 바꾼다.
+    var isSoloPlaying = false
 
     /// Out은 플레이어의 forwardPlaybackEndTime으로 건다 — 재생이 Out에서 저절로 멈추고 끝 알림이 온다.
     private func applyOutPoint() {

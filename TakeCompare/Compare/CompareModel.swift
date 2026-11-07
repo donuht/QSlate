@@ -45,6 +45,8 @@ final class CompareModel {
     @ObservationIgnored private var resumeAfterScrub = false
     /// 칸 바 끌기: 아직 반영하지 않은 마지막 목표(테이크 번호, 원본 기준 초)
     @ObservationIgnored private var takeScrubTarget: (index: Int, seconds: Double)?
+    /// 칸 ▶(그 테이크만 재생) 중인 테이크별 관찰자: 위치 갱신용 주기 관찰자 + 끝(Out·파일 끝) 알림
+    @ObservationIgnored private var soloObservers: [Int: (player: AVPlayer, time: Any, end: NSObjectProtocol)] = [:]
     @ObservationIgnored private var loadGeneration = 0
     @ObservationIgnored private let log = Logger(subsystem: "com.jasonhwangfilm.takecompare", category: "step")
 
@@ -203,6 +205,8 @@ final class CompareModel {
     }
 
     private func teardown() {
+        for index in Array(soloObservers.keys) { removeSoloObservers(index) }
+        for take in takes { take.isSoloPlaying = false }
         pauseAll()
         isPlaying = false
         unbindMaster()
@@ -218,12 +222,19 @@ final class CompareModel {
 
     // MARK: - 재생
 
+    /// 스페이스·공통 ▶: 칸 ▶로 도는 테이크가 있으면 먼저 전부 멈추기만 한다(한 번 더 누르면 공통 재생 = 줄 세워 In부터).
     func togglePlay() {
+        if isAnySoloPlaying {
+            stopAllSolo(snap: true)
+            setStatus(String(localized: "모든 테이크 정지"))
+            return
+        }
         isPlaying ? pause() : play()
     }
 
     func play() {
         guard masterTake != nil, !isDiagnosing else { return }
+        stopAllSolo(snap: false)
         // 흩어져 있으면(currentTime = 0) 각자 In부터, 끝에 있으면 처음부터
         if !isAligned || currentTime >= range - 0.01 { currentTime = 0 }
         startSynchronized(at: currentTime)
@@ -290,6 +301,7 @@ final class CompareModel {
     /// 모든 테이크를 같은 t로 정확히 이동(각자 In + t) — 공통 조작은 전부 여기로 와서 줄을 다시 세운다.
     /// 끄는 중엔 앞선 이동이 끝날 때까지 마지막 값만 남긴다.
     func seekAll(to t: Double) {
+        stopAllSolo(snap: false)
         let t = min(max(0, t), range)
         currentTime = t
         isAligned = true
@@ -397,6 +409,7 @@ final class CompareModel {
     /// 슬라이더를 잡고 놓을 때
     func scrubbing(_ began: Bool) {
         if began {
+            stopAllSolo(snap: false)
             resumeAfterScrub = isPlaying
             if isPlaying {
                 isPlaying = false
@@ -413,6 +426,7 @@ final class CompareModel {
     /// 자기 In·Out 경계에 닿은 테이크는 그 자리에 둔다.
     func step(frames: Int) {
         guard !isDiagnosing else { return }
+        stopAllSolo(snap: false)
         if isPlaying { pause() }
         whenAligned { [weak self] in self?.performFrameStep(frames) }
     }
@@ -473,6 +487,7 @@ final class CompareModel {
 
     func step(seconds: Double) {
         guard !isDiagnosing else { return }
+        stopAllSolo(snap: false)
         if isPlaying { pause() }
         whenSettled { [weak self] in
             guard let self else { return }
@@ -505,6 +520,8 @@ final class CompareModel {
         let take = takes[index]
         if selectedIndex != index { select(index) }
         if isPlaying { pause() }
+        // 이 칸만 재생 중이면 그 프레임에 세운 뒤 동작한다(다른 칸 재생은 그대로).
+        stopSolo(take, snap: true)
         whenSettled { action(take) }
     }
 
@@ -607,6 +624,7 @@ final class CompareModel {
     func clearAllInOut() {
         guard !isDiagnosing, hasTakes else { return }
         if isPlaying { pause() }
+        stopAllSolo(snap: true)
         whenSettled { [weak self] in
             guard let self else { return }
             for take in self.readyTakes { take.resetInOut() }
@@ -676,6 +694,7 @@ final class CompareModel {
         guard !isDiagnosing, index >= 0, index < takes.count, takes[index].isReady else { return }
         if selectedIndex != index { select(index) }
         if isPlaying { pause() }
+        stopSolo(takes[index], snap: false)
         let alreadyQueued = takeScrubTarget != nil
         takeScrubTarget = (index, seconds)
         guard !alreadyQueued else { return }
@@ -692,6 +711,7 @@ final class CompareModel {
         guard began, !isDiagnosing, index >= 0, index < takes.count, takes[index].isReady else { return }
         if selectedIndex != index { select(index) }
         if isPlaying { pause() }
+        stopSolo(takes[index], snap: false)
     }
 
     private func performMove(_ take: Take, frames: Int) {
@@ -764,6 +784,138 @@ final class CompareModel {
         setStatus(String(localized: "테이크 \(index + 1) 소리"))
     }
 
+    // MARK: - 테이크 하나만 재생 (칸 조작 줄 ▶/❚❚)
+    //
+    // 그 테이크만 지금 위치에서 재생한다. 다른 테이크는 그대로(각자 칸 ▶로 따로 돌 수도 있다) — 줄이 흩어진다.
+    // Out이 있으면 Out 프레임에서(forwardPlaybackEndTime), 없으면 파일 끝에서 멈춘다. 루프가 켜져 있으면 In~Out을 그 테이크만 반복한다.
+    // 소리는 🔊가 그 테이크에 있을 때만(선택을 바꾸지 않는다).
+
+    /// 칸 ▶로 도는 테이크가 하나라도 있는가
+    var isAnySoloPlaying: Bool { takes.contains(where: \.isSoloPlaying) }
+
+    /// 칸 조작 줄 ▶/❚❚
+    func togglePlayTake(_ index: Int) {
+        guard !isDiagnosing, index >= 0, index < takes.count, takes[index].isReady else { return }
+        let take = takes[index]
+        if take.isSoloPlaying {
+            stopSolo(take, snap: true)
+            setStatus(positionNote(take, at: take.frameStart(near: absoluteNow(take))))
+            return
+        }
+        if isPlaying {
+            // 공통 재생을 멈추고 이 테이크만 계속 간다. 다른 테이크는 지금 보이는 프레임에 세운다(줄을 다시 세우지 않는다).
+            isPlaying = false
+            for other in readyTakes where other !== take {
+                other.player?.pause()
+                seekPlayer(of: other, toAbsolute: other.frameStart(near: absoluteNow(other)))
+            }
+            scatter()
+            if let player = take.player, player.rate != 0, absoluteNow(take) < soloEnd(take) - take.frameDuration * 0.5 {
+                beginSolo(take)   // 이미 도는 중 — 그대로 이어 간다
+                setStatus(String(localized: "테이크 \(index + 1)만 재생"))
+                return
+            }
+        }
+        whenSettled { [weak self] in self?.playTake(take) }
+    }
+
+    /// 칸 ▶ 재생이 멈출 자리: Out이 있으면 Out, 없으면 마지막 프레임
+    private func soloEnd(_ take: Take) -> Double {
+        take.hasCustomOut ? take.frameStart(near: take.outPoint) : take.fileLastFrameStart
+    }
+
+    private func playTake(_ take: Take) {
+        // 기다리는 사이 공통 재생이 시작됐으면 공통 쪽을 따른다.
+        guard !isDiagnosing, !isPlaying, take.isReady, !take.isSoloPlaying, let player = take.player else { return }
+        let fd = take.frameDuration
+        guard soloEnd(take) - take.inPoint >= fd * 0.5 else {
+            setStatus(String(localized: "테이크 \(take.index + 1): In~Out 구간이 1프레임보다 짧아 재생할 수 없습니다"))
+            return
+        }
+        scatter()
+        beginSolo(take)
+        if absoluteNow(take) >= soloEnd(take) - fd * 0.5 {
+            // Out(없으면 끝)에 있거나 넘었다 — In(없으면 처음)부터
+            restartSolo(take)
+        } else {
+            player.play()
+        }
+        setStatus(String(localized: "테이크 \(take.index + 1)만 재생"))
+    }
+
+    /// In(없으면 처음)으로 정확히 옮긴 뒤 다시 재생
+    private func restartSolo(_ take: Take) {
+        take.player?.pause()
+        take.player?.seek(to: TimeFormat.cmTime(take.inPoint), toleranceBefore: .zero, toleranceAfter: .zero) { [weak take] finished in
+            Task { @MainActor in
+                guard finished, let take, take.isSoloPlaying else { return }
+                take.player?.play()
+            }
+        }
+    }
+
+    /// 솔로 상태로 표시하고 위치 갱신·끝 감지 관찰자를 건다.
+    private func beginSolo(_ take: Take) {
+        guard let player = take.player else { return }
+        let index = take.index
+        removeSoloObservers(index)
+        take.isSoloPlaying = true
+        let time = player.addPeriodicTimeObserver(forInterval: CMTime(value: 1, timescale: 30), queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self, index < self.takes.count else { return }
+                let take = self.takes[index]
+                guard take.isSoloPlaying, let seconds = take.playerTime?.seconds, seconds.isFinite else { return }
+                take.position = seconds
+            }
+        }
+        let end = NotificationCenter.default.addObserver(
+            forName: AVPlayerItem.didPlayToEndTimeNotification,
+            object: player.currentItem,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.soloDidReachEnd(index) }
+        }
+        soloObservers[index] = (player, time, end)
+    }
+
+    /// Out(forwardPlaybackEndTime) 또는 파일 끝에 닿았다: 루프면 In부터 다시, 아니면 그 프레임에 멈춘다.
+    private func soloDidReachEnd(_ index: Int) {
+        guard index < takes.count else { return }
+        let take = takes[index]
+        guard take.isSoloPlaying else { return }
+        if loopEnabled {
+            restartSolo(take)
+            return
+        }
+        stopSolo(take, snap: false)
+        let end = soloEnd(take)
+        seekPlayer(of: take, toAbsolute: end)
+        setStatus(positionNote(take, at: end))
+    }
+
+    /// 그 테이크의 칸 ▶ 재생을 멈춘다. `snap`이면 지금 보이는 프레임의 시작에 정확히 세운다(뒤이은 In/Out·저장이 프레임 단위로 맞게).
+    private func stopSolo(_ take: Take, snap: Bool) {
+        guard take.isSoloPlaying else { return }
+        take.isSoloPlaying = false
+        removeSoloObservers(take.index)
+        take.player?.pause()
+        if snap {
+            seekPlayer(of: take, toAbsolute: take.frameStart(near: absoluteNow(take)))
+        } else {
+            refreshPositions()
+        }
+    }
+
+    private func stopAllSolo(snap: Bool) {
+        for take in takes where take.isSoloPlaying { stopSolo(take, snap: snap) }
+    }
+
+    private func removeSoloObservers(_ index: Int) {
+        guard let entry = soloObservers.removeValue(forKey: index) else { return }
+        entry.player.removeTimeObserver(entry.time)
+        NotificationCenter.default.removeObserver(entry.end)
+    }
+
     // MARK: - 프레임 이동 자가진단
 
     /// 보기 → 프레임 이동 자가진단: 모든 테이크를 step(byCount:)로 ±1프레임 10회 왕복하며
@@ -771,6 +923,7 @@ final class CompareModel {
     func runStepSelfTest() {
         guard !isDiagnosing, !readyTakes.isEmpty else { return }
         if isPlaying { pause() }
+        stopAllSolo(snap: true)
         setStatus(String(localized: "프레임 이동 자가진단 중…"))
         whenSettled { [weak self] in
             guard let self else { return }
@@ -878,6 +1031,7 @@ final class CompareModel {
     func saveFrames(onlySelected: Bool) {
         guard !isDiagnosing else { return }
         if isPlaying { pause() }
+        stopAllSolo(snap: true)
         guard let first = takes.first else {
             setStatus(String(localized: "저장할 테이크가 없습니다"))
             return

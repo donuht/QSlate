@@ -361,6 +361,16 @@
         }
       }
     },
+    "모든 테이크 정지": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All takes stopped"
+          }
+        }
+      }
+    },
     "모든 테이크의 In/Out을 초기화": {
       "localizations": {
         "en": {
@@ -671,6 +681,16 @@
         }
       }
     },
+    "이 테이크만 재생/정지": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Play/pause this take only"
+          }
+        }
+      }
+    },
     "이 테이크만 크게 보기 (%lld)": {
       "localizations": {
         "en": {
@@ -961,6 +981,16 @@
         }
       }
     },
+    "테이크 %lld: In~Out 구간이 1프레임보다 짧아 재생할 수 없습니다": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Take %lld: the In–Out range is shorter than one frame, nothing to play"
+          }
+        }
+      }
+    },
     "테이크 %lld: 이미 마지막 프레임입니다": {
       "localizations": {
         "en": {
@@ -987,6 +1017,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Solo Take %lld"
+          }
+        }
+      }
+    },
+    "테이크 %lld만 재생": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Playing take %lld only"
           }
         }
       }
