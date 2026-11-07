@@ -149,7 +149,7 @@ struct ContentView: View {
             Button {
                 model.saveFrames(onlySelected: false)
             } label: {
-                Label(String(localized: "저장"), systemImage: "square.and.arrow.down")
+                Label(String(localized: "지금 프레임 저장"), systemImage: "square.and.arrow.down")
             }
             .controlSize(.small)
             .help(String(localized: "지금 프레임을 모든 테이크에서 PNG로 저장 (⌘S)"))
