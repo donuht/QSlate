@@ -131,16 +131,6 @@
         }
       }
     },
-    "Out이 In(%@)보다 앞이라 무시했습니다 — 테이크 %lld": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Out is before In (%1$@), ignored — take %2$lld"
-          }
-        }
-      }
-    },
     "PNG 파일을 만들 수 없습니다: %@": {
       "localizations": {
         "en": {
@@ -1507,6 +1497,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Show/hide bar thumbnail preview (T)"
+          }
+        }
+      }
+    },
+    "Out이 In(%@)과 같거나 앞이라 무시했습니다 — 테이크 %lld": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Out is at or before In (%1$@), ignored — take %2$lld"
+          }
+        }
+      }
+    },
+    "테이크 %lld In 없음 (처음부터)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Take %lld: no In (from the start)"
+          }
+        }
+      }
+    },
+    "테이크 %lld Out 없음 (끝까지)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Take %lld: no Out (to the end)"
           }
         }
       }

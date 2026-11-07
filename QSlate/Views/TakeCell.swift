@@ -42,6 +42,7 @@ struct TakeCell: View {
             .onTapGesture { model.select(index) }
             if take.isReady {
                 TakeStrip(take: take, model: model)
+                    .zIndex(1) // 바 호버 썸네일이 위 칸 영상(AVPlayerView) 뒤로 들어가지 않게
             }
         }
     }
@@ -418,6 +419,8 @@ struct TakeBar: View {
             }
             .onChange(of: inPoint) { _, new in if trimming == .inPoint { requestThumbnail(at: new) } }
             .onChange(of: outPoint) { _, new in if trimming == .outPoint { requestThumbnail(at: new) } }
+            // 썸네일을 끄면 남아 있던 포인터 상태를 지워, 다시 켤 때 그림 없는 말풍선이 뜨지 않게
+            .onChange(of: thumbnails == nil) { _, off in if off { leave() } }
         }
         .frame(height: Self.height)
         .onDisappear { setResizeCursor(false) }
@@ -453,6 +456,7 @@ struct TakeBar: View {
                         dragMode = .trim(grabbed, grab: value.startLocation.x - edge)
                         setResizeCursor(true)
                         onTrim(grabbed, .began)
+                        requestThumbnail(at: grabbed == .inPoint ? inPoint : outPoint)
                     } else {
                         dragMode = .scrub
                         onScrub(.began)
@@ -464,9 +468,9 @@ struct TakeBar: View {
                     let edgeX = min(max(0, value.location.x - grab), width)
                     let seconds = Double(edgeX / width) * duration
                     onTrim?(grabbed, .moved(seconds))
-                    // 말풍선을 켜 두고(위치·프레임은 손잡이가 멈춘 자리), 가려는 프레임을 미리 요청한다.
+                    // 말풍선을 켜 둔다(위치·프레임은 손잡이가 실제로 멈춘 자리). 썸네일 요청은 In/Out 값이 바뀔 때
+                    // onChange에서 하므로, 상대 손잡이에 붙어 멈춘 뒤 포인터 프레임을 따로 요청하지 않는다.
                     pointerX = edgeX
-                    requestThumbnail(at: seconds)
                 default:
                     let fraction = min(max(0, value.location.x / width), 1)
                     onScrub(.moved(fraction * duration))

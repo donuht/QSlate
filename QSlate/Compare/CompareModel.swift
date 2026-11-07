@@ -105,8 +105,9 @@ final class CompareModel {
     @ObservationIgnored private var resumeAfterScrub = false
     /// 공통 슬라이더를 잡고 있는 중 — 이 동안 I/O는 받지 않는다(재생 중 잡았으면 표시가 어긋난다).
     @ObservationIgnored private(set) var isScrubbing = false
-    /// 칸 바 끌기: 아직 반영하지 않은 마지막 목표(테이크 번호, 원본 기준 초)
-    @ObservationIgnored private var takeScrubTarget: (index: Int, seconds: Double, note: String?)?
+    /// 칸 바 끌기: 테이크별로 아직 반영하지 않은 마지막 목표(원본 기준 초). 테이크마다 따로 둬야
+    /// 손잡이를 놓고 바로 다른 칸을 잡아도 앞 테이크의 마지막 목표가 사라지지 않는다.
+    @ObservationIgnored private var takeScrubTargets: [Int: (seconds: Double, note: String?)] = [:]
     /// 칸 ▶(그 테이크만 재생) 중인 테이크별 관찰자: 위치 갱신용 주기 관찰자 + 끝(Out·파일 끝) 알림
     @ObservationIgnored private var soloObservers: [Int: (player: AVPlayer, time: Any, end: NSObjectProtocol)] = [:]
     @ObservationIgnored private var loadGeneration = 0
@@ -311,7 +312,7 @@ final class CompareModel {
         seeksInFlight = 0
         stepInFlight = false
         afterSeekActions = []
-        takeScrubTarget = nil
+        takeScrubTargets = [:]
         isDiagnosing = false
         isAligned = true
         for take in takes { take.player?.replaceCurrentItem(with: nil) }
@@ -786,7 +787,7 @@ final class CompareModel {
         let now = take.frameStart(near: absoluteNow(take))
         // 손잡이 끌기와 같은 규칙: Out은 In보다 최소 1프레임 뒤. 같은 프레임이면 구간이 0이라 재생할 게 없다.
         guard now >= take.inPoint + take.frameDuration - InOut.epsilon else {
-            setStatus(String(localized: "Out이 In(\(TimeFormat.clock(take.inPoint)))보다 앞이라 무시했습니다 — 테이크 \(take.index + 1)"))
+            setStatus(String(localized: "Out이 In(\(TimeFormat.clock(take.inPoint)))과 같거나 앞이라 무시했습니다 — 테이크 \(take.index + 1)"))
             return
         }
         take.outPoint = now
@@ -910,14 +911,13 @@ final class CompareModel {
         if selectedIndex != index { select(index) }
         if isPlaying { pause() }
         stopSolo(takes[index], snap: false)
-        let alreadyQueued = takeScrubTarget != nil
-        takeScrubTarget = (index, seconds, note)
+        let alreadyQueued = takeScrubTargets[index] != nil
+        takeScrubTargets[index] = (seconds, note)
         guard !alreadyQueued else { return }
         whenSettled { [weak self] in
-            guard let self, let target = self.takeScrubTarget else { return }
-            self.takeScrubTarget = nil
-            guard target.index < self.takes.count else { return }
-            self.performTakeSeek(self.takes[target.index], toAbsolute: target.seconds, note: target.note)
+            guard let self, let target = self.takeScrubTargets.removeValue(forKey: index) else { return }
+            guard index < self.takes.count else { return }
+            self.performTakeSeek(self.takes[index], toAbsolute: target.seconds, note: target.note)
         }
     }
 
@@ -943,8 +943,10 @@ final class CompareModel {
             take.inPoint = target
             inOutChanged()
         }
-        queueTakeSeek(index, toAbsolute: target,
-                      note: String(localized: "테이크 \(index + 1) In = \(TimeFormat.clock(target))") + offsetNote(take))
+        let note = target <= InOut.epsilon
+            ? String(localized: "테이크 \(index + 1) In 없음 (처음부터)")
+            : String(localized: "테이크 \(index + 1) In = \(TimeFormat.clock(target))") + offsetNote(take)
+        queueTakeSeek(index, toAbsolute: target, note: note)
     }
 
     /// Out 손잡이: Out = `seconds`가 든 프레임(최소 In 프레임 + 1프레임). 원본 마지막 프레임이면 Out 없음(끝).
@@ -966,8 +968,10 @@ final class CompareModel {
             take.outPoint = newOut
             inOutChanged()
         }
-        queueTakeSeek(index, toAbsolute: target,
-                      note: String(localized: "테이크 \(index + 1) Out = \(TimeFormat.clock(target))"))
+        let note = newOut >= duration - InOut.epsilon
+            ? String(localized: "테이크 \(index + 1) Out 없음 (끝까지)")
+            : String(localized: "테이크 \(index + 1) Out = \(TimeFormat.clock(target))")
+        queueTakeSeek(index, toAbsolute: target, note: note)
     }
 
     /// 칸 아래 바를 잡을 때: 그 칸을 고르고 재생을 멈춘다. 놓을 때는 아무것도 하지 않는다(그 자리에 둔다).
