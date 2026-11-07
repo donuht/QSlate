@@ -123,11 +123,15 @@ struct ContentView: View {
                 }
                 .buttonStyle(StripButtonStyle(onPress: { model.step(frames: -1) }))
                 .help(String(localized: "모든 테이크 1프레임 뒤로 — 길게 누르면 반복 (←)"))
+                .accessibilityLabel(Text(verbatim: String(localized: "모든 테이크 1프레임 뒤로 — 길게 누르면 반복 (←)")))
+                .accessibilityAction { model.step(frames: -1) }
                 Button {} label: {
                     Image(systemName: "forward.frame").frame(width: 22, height: 20)
                 }
                 .buttonStyle(StripButtonStyle(onPress: { model.step(frames: 1) }))
                 .help(String(localized: "모든 테이크 1프레임 앞으로 — 길게 누르면 반복 (→)"))
+                .accessibilityLabel(Text(verbatim: String(localized: "모든 테이크 1프레임 앞으로 — 길게 누르면 반복 (→)")))
+                .accessibilityAction { model.step(frames: 1) }
             }
             .disabled(model.readyTakes.isEmpty || model.isDiagnosing)
 

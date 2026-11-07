@@ -24,6 +24,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     private var keyMonitor: Any?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        NSWindow.allowsAutomaticWindowTabbing = false  // 보기 메뉴에 '탭 막대 보기' 같은 자동 항목이 끼지 않게
         NSApp.mainMenu = MainMenu.build(target: self)
         makeWindow()
         installKeyMonitor()

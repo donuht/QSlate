@@ -190,7 +190,7 @@ struct TakeStrip: View {
         highlighted: Bool = false,
         action: @escaping () -> Void
     ) -> some View {
-        Button(action: repeats ? {} : action) {
+        let button = Button(action: repeats ? {} : action) {
             Image(systemName: symbol)
                 .imageScale(.small)
                 .frame(width: 22, height: 20)
@@ -200,6 +200,14 @@ struct TakeStrip: View {
         .help(help)
         .accessibilityLabel(Text(verbatim: help))
         .disabled(disabled)
+        return Group {
+            if repeats {
+                // 반복 버튼은 마우스 '누름'에 반응하므로, 접근성·자동화의 AXPress에도 한 번 동작하게 한다.
+                button.accessibilityAction { action() }
+            } else {
+                button
+            }
+        }
     }
 
     /// `[ In 00:00.50 ]` / 미설정이면 `[ In — ]`
