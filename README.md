@@ -4,7 +4,9 @@ QSlate(큐슬레이트) — Q(검수·QC)와 Slate(테이크 번호판). 생성 
 
 macOS용 생성 영상 테이크 비교기. 같은 컷을 여러 번 뽑은 mp4 2~4개를 한 창에 띄워 **같은 시점으로 동기 재생**하고, 같은 시점 프레임을 한 번에 PNG로 뽑는다. QuickTime 창 여러 개를 띄워 눈으로 시점을 맞추던 걸 대신하려고 만들었다.
 
-*갈라보기 데모 — 선을 끌면 왼쪽은 테이크 A, 오른쪽은 B, 마지막은 겹치기. ([demo-split.mp4](docs/demo-split.mp4))*
+![QSlate 데모 — 나눠 보기에서 같은 시점 재생, 갈라보기 선을 끌어 A/B 비교](docs/demo.gif)
+
+*나눠 보기(전체 보기)로 두 테이크를 같은 시점에 재생하다가, 갈라보기로 바꿔 선을 끌면 왼쪽은 테이크 A, 오른쪽은 B. 마지막은 겹치기. ([mp4](docs/demo-split.mp4))*
 
 
 *A take comparer for macOS. Open 2–4 generated takes of the same shot, play them in sync on one clock, flip between them A/B, and save the same frame from every take as PNG in one keystroke. English UI included — see [English](#english) below.*
