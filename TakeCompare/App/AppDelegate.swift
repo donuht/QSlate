@@ -48,7 +48,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         )
         window.title = "TakeCompare"
         window.isReleasedWhenClosed = false
-        window.minSize = NSSize(width: 560, height: 360)
+        // 2×2 격자에서 칸마다 조작 줄이 들어가도 영상이 너무 작아지지 않게
+        let minSize = NSSize(width: 1100, height: 700)
+        window.contentMinSize = minSize
         let hosting = NSHostingView(rootView: ContentView(model: model))
         // SwiftUI가 창 크기를 정하지 않게 — 창 크기는 사용자·기억값이 정한다.
         hosting.sizingOptions = []
@@ -56,6 +58,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         window.center()
         // 창 크기·위치 기억 (저장된 값이 있으면 복원)
         window.setFrameAutosaveName("TakeCompareMainWindow")
+        // 예전 버전이 기억한 더 작은 창 크기는 최소 크기로 키운다.
+        let content = window.contentRect(forFrameRect: window.frame).size
+        if content.width < minSize.width || content.height < minSize.height {
+            window.setContentSize(NSSize(width: max(content.width, minSize.width), height: max(content.height, minSize.height)))
+        }
         window.makeKeyAndOrderFront(nil)
         self.window = window
     }

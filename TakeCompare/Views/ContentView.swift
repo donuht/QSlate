@@ -17,7 +17,7 @@ struct ContentView: View {
             Divider()
             statusBar
         }
-        .frame(minWidth: 560, minHeight: 360)
+        .frame(minWidth: 1100, minHeight: 700)
         .overlay {
             if isDropTargeted {
                 RoundedRectangle(cornerRadius: 8)
@@ -64,15 +64,8 @@ struct ContentView: View {
     }
 
     private func cell(_ take: Take) -> some View {
-        TakeCell(
-            take: take,
-            isSelected: take.index == model.selectedIndex,
-            isMuted: model.isMuted,
-            offsetFrames: model.offsetFrames(of: take),
-            timelineTime: model.currentTime,
-            onSelect: { model.select(take.index) }
-        )
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        TakeCell(take: take, model: model)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var emptyState: some View {
@@ -121,6 +114,21 @@ struct ContentView: View {
             .controlSize(.small)
             .disabled(model.readyTakes.isEmpty || model.isDiagnosing)
 
+            // 전체 1프레임 (←/→) — 길게 누르면 반복
+            HStack(spacing: 2) {
+                Button {} label: {
+                    Image(systemName: "backward.frame").frame(width: 22, height: 20)
+                }
+                .buttonStyle(StripButtonStyle(onPress: { model.step(frames: -1) }))
+                .help(String(localized: "모든 테이크 1프레임 뒤로 — 길게 누르면 반복 (←)"))
+                Button {} label: {
+                    Image(systemName: "forward.frame").frame(width: 22, height: 20)
+                }
+                .buttonStyle(StripButtonStyle(onPress: { model.step(frames: 1) }))
+                .help(String(localized: "모든 테이크 1프레임 앞으로 — 길게 누르면 반복 (→)"))
+            }
+            .disabled(model.readyTakes.isEmpty || model.isDiagnosing)
+
             Toggle(isOn: $model.loopEnabled) {
                 Image(systemName: "repeat")
             }
@@ -135,6 +143,22 @@ struct ContentView: View {
             }
             .buttonStyle(.borderless)
             .help(String(localized: "전체 음소거 (M)"))
+
+            Button {
+                model.saveFrames(onlySelected: false)
+            } label: {
+                Label(String(localized: "저장"), systemImage: "square.and.arrow.down")
+            }
+            .controlSize(.small)
+            .help(String(localized: "지금 프레임을 모든 테이크에서 PNG로 저장 (⌘S)"))
+            .disabled(model.readyTakes.isEmpty || model.isDiagnosing)
+
+            Button(String(localized: "인·아웃 모두 초기화")) {
+                model.clearAllInOut()
+            }
+            .controlSize(.small)
+            .help(String(localized: "모든 테이크의 In/Out을 초기화"))
+            .disabled(!model.hasAnyInOut || model.isDiagnosing)
         }
     }
 

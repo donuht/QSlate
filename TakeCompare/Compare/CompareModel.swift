@@ -40,6 +40,8 @@ final class CompareModel {
     /// 진행 중인 이동이 다 끝난 뒤에 차례로 할 일(프레임 이동·In/Out·저장)
     @ObservationIgnored private var afterSeekActions: [@MainActor () -> Void] = []
     @ObservationIgnored private var resumeAfterScrub = false
+    /// 칸 바 끌기: 아직 반영하지 않은 마지막 목표(테이크 번호, 원본 기준 초)
+    @ObservationIgnored private var takeScrubTarget: (index: Int, seconds: Double)?
     @ObservationIgnored private var loadGeneration = 0
     @ObservationIgnored private let log = Logger(subsystem: "com.jasonhwangfilm.takecompare", category: "step")
 
@@ -203,6 +205,7 @@ final class CompareModel {
         seeksInFlight = 0
         stepInFlight = false
         afterSeekActions = []
+        takeScrubTarget = nil
         isDiagnosing = false
         for take in takes { take.player?.replaceCurrentItem(with: nil) }
     }
@@ -431,15 +434,27 @@ final class CompareModel {
 
     // MARK: - In/Out·정렬
 
-    /// I/O·정렬 공통 준비: 재생을 멈추고, 이동이 끝난 뒤 선택 테이크로 action을 부른다.
+    /// I/O·정렬 공통 준비(칸 지정): 그 칸을 선택하고, 재생을 멈추고, 이동이 끝난 뒤 그 테이크로 action을 부른다.
+    private func withTake(_ index: Int, _ action: @escaping @MainActor (Take) -> Void) {
+        guard !isDiagnosing else { return }
+        guard index >= 0, index < takes.count, takes[index].isReady else {
+            setStatus(String(localized: "테이크 \(index + 1)을(를) 쓸 수 없습니다"))
+            return
+        }
+        let take = takes[index]
+        if selectedIndex != index { select(index) }
+        if isPlaying { pause() }
+        whenSettled { action(take) }
+    }
+
+    /// 키보드·메뉴용: 선택한 테이크로 `withTake`
     private func withSelectedTake(_ action: @escaping @MainActor (Take) -> Void) {
         guard !isDiagnosing else { return }
-        guard let take = selectedTake else {
+        guard selectedTake != nil else {
             setStatus(String(localized: "선택한 테이크가 없습니다 — 칸을 클릭하거나 숫자키로 고르세요"))
             return
         }
-        if isPlaying { pause() }
-        whenSettled { action(take) }
+        withTake(selectedIndex, action)
     }
 
     /// 플레이어가 서 있는 절대 시각(이동이 끝난 뒤 부른다)
@@ -450,53 +465,79 @@ final class CompareModel {
 
     /// I: 선택 테이크의 In = 지금 보이는 프레임. 그 프레임이 t = 0이 된다.
     func markIn() {
-        withSelectedTake { [weak self] take in
-            guard let self else { return }
-            let now = self.absoluteNow(take)
-            guard now < take.outPoint - InOut.epsilon else {
-                self.setStatus(String(localized: "In은 Out보다 앞이어야 합니다 — 테이크 \(take.index + 1)의 Out 앞으로 옮긴 뒤 I"))
-                return
-            }
-            take.inPoint = now
-            self.inOutChanged(keepVisible: take, at: now)
-            self.setStatus(String(localized: "테이크 \(take.index + 1) In = \(TimeFormat.clock(now))") + self.offsetNote(take))
+        withSelectedTake { [weak self] take in self?.performMarkIn(take) }
+    }
+
+    /// 칸 조작 줄 [In]: 그 테이크의 In = 지금 보이는 프레임
+    func markIn(_ index: Int) {
+        withTake(index) { [weak self] take in self?.performMarkIn(take) }
+    }
+
+    private func performMarkIn(_ take: Take) {
+        let now = absoluteNow(take)
+        guard now < take.outPoint - InOut.epsilon else {
+            setStatus(String(localized: "In은 Out보다 앞이어야 합니다 — 테이크 \(take.index + 1)의 Out 앞으로 옮긴 뒤 I"))
+            return
         }
+        take.inPoint = now
+        inOutChanged(keepVisible: take, at: now)
+        setStatus(String(localized: "테이크 \(take.index + 1) In = \(TimeFormat.clock(now))") + offsetNote(take))
     }
 
     /// O: 선택 테이크의 Out = 지금 보이는 프레임
     func markOut() {
-        withSelectedTake { [weak self] take in
-            guard let self else { return }
-            let now = self.absoluteNow(take)
-            guard now >= take.inPoint - InOut.epsilon else {
-                self.setStatus(String(localized: "Out이 In(\(TimeFormat.clock(take.inPoint)))보다 앞이라 무시했습니다 — 테이크 \(take.index + 1)"))
-                return
-            }
-            take.outPoint = max(now, take.inPoint)
-            self.inOutChanged(keepVisible: take, at: now)
-            self.setStatus(String(localized: "테이크 \(take.index + 1) Out = \(TimeFormat.clock(now))"))
+        withSelectedTake { [weak self] take in self?.performMarkOut(take) }
+    }
+
+    /// 칸 조작 줄 [Out]
+    func markOut(_ index: Int) {
+        withTake(index) { [weak self] take in self?.performMarkOut(take) }
+    }
+
+    private func performMarkOut(_ take: Take) {
+        let now = absoluteNow(take)
+        guard now >= take.inPoint - InOut.epsilon else {
+            setStatus(String(localized: "Out이 In(\(TimeFormat.clock(take.inPoint)))보다 앞이라 무시했습니다 — 테이크 \(take.index + 1)"))
+            return
         }
+        take.outPoint = max(now, take.inPoint)
+        inOutChanged(keepVisible: take, at: now)
+        setStatus(String(localized: "테이크 \(take.index + 1) Out = \(TimeFormat.clock(now))"))
     }
 
     /// ⌥I
     func clearIn() {
-        withSelectedTake { [weak self] take in
-            guard let self else { return }
-            let now = self.absoluteNow(take)
-            take.inPoint = 0
-            self.inOutChanged(keepVisible: take, at: now)
-            self.setStatus(String(localized: "테이크 \(take.index + 1) In 초기화"))
-        }
+        withSelectedTake { [weak self] take in self?.performClear(take, inPoint: true, outPoint: false) }
+    }
+
+    func clearIn(_ index: Int) {
+        withTake(index) { [weak self] take in self?.performClear(take, inPoint: true, outPoint: false) }
     }
 
     /// ⌥O
     func clearOut() {
-        withSelectedTake { [weak self] take in
-            guard let self else { return }
-            let now = self.absoluteNow(take)
-            take.outPoint = take.info?.duration ?? take.outPoint
-            self.inOutChanged(keepVisible: take, at: now)
-            self.setStatus(String(localized: "테이크 \(take.index + 1) Out 초기화"))
+        withSelectedTake { [weak self] take in self?.performClear(take, inPoint: false, outPoint: true) }
+    }
+
+    func clearOut(_ index: Int) {
+        withTake(index) { [weak self] take in self?.performClear(take, inPoint: false, outPoint: true) }
+    }
+
+    /// 칸 조작 줄 ↺: 그 테이크의 In/Out 둘 다 초기화
+    func clearInOut(_ index: Int) {
+        withTake(index) { [weak self] take in self?.performClear(take, inPoint: true, outPoint: true) }
+    }
+
+    /// In/Out 초기화. 지금 보이는 프레임은 그대로 둔다(t를 다시 계산).
+    private func performClear(_ take: Take, inPoint clearIn: Bool, outPoint clearOut: Bool) {
+        let now = absoluteNow(take)
+        if clearIn { take.inPoint = 0 }
+        if clearOut { take.outPoint = take.info?.duration ?? take.outPoint }
+        inOutChanged(keepVisible: take, at: now)
+        switch (clearIn, clearOut) {
+        case (true, true): setStatus(String(localized: "테이크 \(take.index + 1) In/Out 초기화"))
+        case (true, false): setStatus(String(localized: "테이크 \(take.index + 1) In 초기화"))
+        default: setStatus(String(localized: "테이크 \(take.index + 1) Out 초기화"))
         }
     }
 
@@ -534,6 +575,16 @@ final class CompareModel {
 
     func nudgeSelected(seconds: Double) {
         withSelectedTake { [weak self] take in self?.performNudge(take, frames: 0, seconds: seconds) }
+    }
+
+    /// 칸 조작 줄 ◀ / ▶: 그 테이크만 한 프레임 (⌥←/⌥→와 같은 뜻)
+    func nudge(_ index: Int, frames: Int) {
+        withTake(index) { [weak self] take in self?.performNudge(take, frames: frames, seconds: nil) }
+    }
+
+    /// 칸 조작 줄 ◀◀ / ▶▶: 그 테이크만 1초 (⌥⇧←/⌥⇧→와 같은 뜻)
+    func nudge(_ index: Int, seconds: Double) {
+        withTake(index) { [weak self] take in self?.performNudge(take, frames: 0, seconds: seconds) }
     }
 
     private func performNudge(_ take: Take, frames: Int, seconds: Double?) {
@@ -587,6 +638,91 @@ final class CompareModel {
 
     static func signed(_ n: Int) -> String {
         n > 0 ? "+\(n)" : "\(n)"
+    }
+
+    // MARK: - 테이크 하나만 옮기기 (칸 조작 줄)
+
+    /// 칸 아래 바를 끌 때: 그 테이크가 원본 기준 `seconds`(그 프레임의 시작으로 맞춤)를 보이도록 그 테이크의 In만 옮긴다.
+    /// In = seconds − t. 다른 테이크는 그대로 — 정렬이 바뀐다(⌥화살표와 같은 뜻).
+    /// In은 0 밑·(Out − 1프레임) 위로 가지 않는다. 끄는 중 쏟아지는 값은 앞 이동이 끝날 때까지 마지막 하나만 남긴다.
+    func scrubTake(_ index: Int, toAbsolute seconds: Double) {
+        guard !isDiagnosing, index >= 0, index < takes.count, takes[index].isReady else { return }
+        if selectedIndex != index { select(index) }
+        if isPlaying { pause() }
+        let alreadyQueued = takeScrubTarget != nil
+        takeScrubTarget = (index, seconds)
+        guard !alreadyQueued else { return }
+        whenSettled { [weak self] in
+            guard let self, let target = self.takeScrubTarget else { return }
+            self.takeScrubTarget = nil
+            guard target.index < self.takes.count else { return }
+            self.performTakeScrub(self.takes[target.index], toAbsolute: target.seconds)
+        }
+    }
+
+    /// 칸 아래 바를 잡을 때(began = true)·놓을 때(false). 잡으면 재생을 멈추고, 놓으면 진행 중 이동이 끝난 뒤 모두 같은 t로 다시 세운다.
+    func takeScrubbing(_ index: Int, began: Bool) {
+        guard !isDiagnosing, index >= 0, index < takes.count, takes[index].isReady else { return }
+        if began {
+            if selectedIndex != index { select(index) }
+            if isPlaying { pause() }
+        } else {
+            whenSettled { [weak self] in
+                guard let self else { return }
+                self.seekAll(to: self.currentTime)
+            }
+        }
+    }
+
+    /// 칸 조작 줄 |◀: 그 테이크만 처음(원본 0)으로. 공통 위치 t가 0보다 뒤면 In이 0에 걸려 t까지만 간다.
+    func goToTakeStart(_ index: Int) {
+        withTake(index) { [weak self] take in self?.performTakeScrub(take, toAbsolute: 0) }
+    }
+
+    /// 칸 조작 줄 ▶|: 그 테이크만 끝(Out 또는 마지막 프레임)으로
+    func goToTakeEnd(_ index: Int) {
+        withTake(index) { [weak self] take in self?.performTakeScrub(take, toAbsolute: take.info?.duration ?? 0) }
+    }
+
+    private func performTakeScrub(_ take: Take, toAbsolute seconds: Double) {
+        guard let info = take.info else { return }
+        let fd = take.frameDuration
+        let t = currentTime
+        // 원본 범위로 묶고 그 프레임의 시작에 맞춘다.
+        // 마지막 프레임 시작은 프레임 수를 반올림해 구한다 — 길이가 프레임 배수보다 조금 짧은 파일이 있다
+        // (표본 B: 44프레임인데 길이 1.833008 < 44/24). `길이 − 1프레임`을 내림하면 마지막 바로 앞 프레임이 된다.
+        let frameCount = max(1, (info.duration / fd).rounded())
+        var lastStart = (frameCount - 1) * fd
+        if lastStart >= info.duration { lastStart = max(0, lastStart - fd) }
+        let wanted = ((min(max(0, seconds), lastStart) / fd) + 1e-6).rounded(.down) * fd
+        let maxIn = take.hasCustomOut ? max(0, take.outPoint - fd) : lastStart
+        let newIn = min(max(0, wanted - t), maxIn)
+        let clampedLow = wanted - t < -fd * 0.01
+        if abs(newIn - take.inPoint) > InOut.epsilon {
+            take.inPoint = newIn
+            rebindMaster()
+            // 범위가 줄어 t가 밖으로 나가면 전부 다시 세운다. 아니면 이 테이크만.
+            let newT = min(t, range)
+            if newT < t - InOut.epsilon {
+                seekAll(to: newT)
+            } else {
+                seekTake(take, to: t)
+            }
+        }
+        if clampedLow {
+            setStatus(String(localized: "테이크 \(take.index + 1): In이 0이라 공통 위치(\(TimeFormat.clock(t))) 앞은 못 봅니다 — 공통 위치를 앞으로 옮긴 뒤 다시"))
+        } else {
+            setStatus(String(localized: "테이크 \(take.index + 1) 이동 — In \(TimeFormat.clock(take.inPoint))") + offsetNote(take))
+        }
+    }
+
+    /// 칸 조작 줄 🔊: 이 테이크 소리만 켠다(하나만). 전체 음소거 중이면 푼다.
+    func soundOn(_ index: Int) {
+        guard index >= 0, index < takes.count else { return }
+        selectedIndex = index
+        isMuted = false
+        applyAudio()
+        setStatus(String(localized: "테이크 \(index + 1) 소리"))
     }
 
     // MARK: - 프레임 이동 자가진단
