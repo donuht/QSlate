@@ -326,15 +326,13 @@ struct TakeBar: View {
                 .overlay(alignment: .topLeading) {
                     if let pointerX, let thumbnails, width > 0 {
                         let frame = thumbnails.frame(at: Double(pointerX / width) * duration)
+                        // 말풍선 가운데를 마우스 x에(바 양 끝에서는 안쪽으로 붙임), 세로는 바 **위**에.
+                        // 정렬 가이드는 호버 중 다시 계산되지 않아 따라오지 않았다 — 명시적 offset으로 둔다.
+                        let bubbleWidth = BarThumbnailBubble.width + 8
+                        let left = min(max(0, pointerX - bubbleWidth / 2), max(0, width - bubbleWidth))
                         BarThumbnailBubble(cache: thumbnails, frame: frame, aspect: aspect)
                             .fixedSize()
-                            .alignmentGuide(.leading) { d in
-                                // 말풍선 가운데를 마우스 x에, 바 양 끝에서는 안쪽으로 붙인다.
-                                let left = min(max(0, pointerX - d.width / 2), max(0, width - d.width))
-                                return -left
-                            }
-                            // 바 **위**에 띄운다(아래로 내리면 공통 조작 줄에 가려 잘린다).
-                            .offset(y: -(BarThumbnailBubble.totalHeight(aspect: aspect) + 6))
+                            .offset(x: left, y: -(BarThumbnailBubble.totalHeight(aspect: aspect) + 6))
                             .allowsHitTesting(false)
                     }
                 }
