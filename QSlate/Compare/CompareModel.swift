@@ -326,7 +326,7 @@ final class CompareModel {
     }
 
     func play() {
-        guard !isDiagnosing else { return }
+        guard !isDiagnosing, !isScrubbing else { return }
         guard !isLoading else {
             setStatus(String(localized: "불러오는 중…"))
             return
@@ -696,7 +696,8 @@ final class CompareModel {
     func goToEnd() {
         guard !isDiagnosing else { return }
         if isPlaying { pause() }
-        seekAll(to: range)
+        // 파일 끝 시각(range)이 아니라 마지막 프레임 시작으로 — 표시 시각과 보이는 프레임이 맞게(루프 끔 끝 도달과 동일)
+        seekAll(to: lastFrameTime)
     }
 
     // MARK: - In/Out
@@ -1253,7 +1254,7 @@ final class CompareModel {
 
     /// 숫자키: 그 테이크만 창 전체로. 같은 키를 다시 누르면 격자로.
     func toggleSolo(_ index: Int) {
-        guard index < takes.count else { return }
+        guard index < takes.count, takes[index].isReady else { return }
         if soloIndex == index {
             viewMode = .grid
         } else {
@@ -1264,7 +1265,7 @@ final class CompareModel {
 
     /// 툴바 단독: 선택한 테이크만 크게
     func showSoloSelected() {
-        guard selectedIndex < takes.count else { return }
+        guard selectedIndex < takes.count, takes[selectedIndex].isReady else { return }
         viewMode = .solo(selectedIndex)
     }
 
