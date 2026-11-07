@@ -23,9 +23,12 @@ enum TimeFormat {
         min(max(0, seconds), max(0, duration - 0.001))
     }
 
-    /// 프레임 단위 계산용 고정밀 CMTime
+    /// 초 → CMTime(마이크로초). **올림**한다.
+    /// `CMTime(seconds:preferredTimescale:)`는 버림이라, 프레임 시작 시각(예: 31/24 = 1.2916666…초)을 넣으면
+    /// 1.291666초가 되어 경계 바로 앞 = 앞 프레임이 나온다(2026-11-07 실측). 올리면 항상 그 프레임 안쪽 1µs 이내에 선다.
     static func cmTime(_ seconds: Double) -> CMTime {
-        CMTime(seconds: seconds, preferredTimescale: 1_000_000)
+        let micros = (max(0, seconds) * 1_000_000 - 1e-6).rounded(.up)
+        return CMTime(value: CMTimeValue(max(0, micros)), timescale: 1_000_000)
     }
 }
 
@@ -52,14 +55,14 @@ enum FrameExporter {
         firstFile.deletingLastPathComponent().appendingPathComponent("_frames", isDirectory: true)
     }
 
-    /// 한 장 추출. `seconds`는 이미 그 테이크 길이에 맞게 묶인 값이어야 한다.
-    static func exportFrame(from source: URL, at seconds: Double, to destination: URL) async throws {
+    /// 한 장 추출. 플레이어의 `currentTime()`을 그대로 받는다(초로 바꾸면 경계에서 앞 프레임으로 밀릴 수 있다).
+    static func exportFrame(from source: URL, at time: CMTime, to destination: URL) async throws {
         let asset = AVURLAsset(url: source)
         let generator = AVAssetImageGenerator(asset: asset)
         generator.appliesPreferredTrackTransform = true
         generator.requestedTimeToleranceBefore = .zero
         generator.requestedTimeToleranceAfter = .zero
-        let (image, _) = try await generator.image(at: TimeFormat.cmTime(seconds))
+        let (image, _) = try await generator.image(at: time)
         try writePNG(image, to: destination)
     }
 

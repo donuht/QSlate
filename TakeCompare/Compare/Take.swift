@@ -32,6 +32,13 @@ final class Take: Identifiable {
     var state: State = .loading
     private(set) var player: AVPlayer?
 
+    /// 이 테이크의 In(초, 원본 기준). 기본 0.
+    var inPoint: Double = 0
+    /// 이 테이크의 Out(초, 원본 기준). 기본 = 길이. 이 프레임까지 보여주고 멈춘다.
+    var outPoint: Double = 0 {
+        didSet { applyOutPoint() }
+    }
+
     init(url: URL, index: Int) {
         self.url = url
         self.index = index
@@ -47,21 +54,81 @@ final class Take: Identifiable {
 
     var isReady: Bool { info != nil }
 
+    /// 한 프레임 길이(초)
+    var frameDuration: Double { 1 / (info?.fps ?? 24) }
+
+    /// In~Out 구간 길이(초)
+    var span: Double { max(0, outPoint - inPoint) }
+
+    var hasCustomIn: Bool { inPoint > InOut.epsilon }
+    var hasCustomOut: Bool {
+        guard let info else { return false }
+        return outPoint < info.duration - InOut.epsilon
+    }
+
     func makeReady(_ info: TakeInfo) {
         state = .ready(info)
-        let player = AVPlayer(playerItem: AVPlayerItem(url: url))
+        let item = AVPlayerItem(url: url)
+        // step(byCount:)는 영상 출력(레이어·VideoOutput)이 붙어 있어야 한 프레임씩 움직인다.
+        // 아무것도 안 붙은 플레이어는 한 번에 0.25초(24fps에서 6프레임)씩 뛴다(2026-11-07 실측).
+        // 단독 보기로 칸이 화면에서 빠져도 정확하도록 VideoOutput을 항상 하나 붙여 둔다.
+        item.add(AVPlayerItemVideoOutput(pixelBufferAttributes: nil))
+        let player = AVPlayer(playerItem: item)
         // setRate(_:time:atHostTime:)를 쓰려면 꺼야 한다.
         player.automaticallyWaitsToMinimizeStalling = false
-        // 짧은 테이크는 끝에서 마지막 프레임에 멈춘다.
+        // 짧은 테이크·Out에 닿은 테이크는 그 프레임에 멈춘다.
         player.actionAtItemEnd = .pause
         player.isMuted = true
         self.player = player
+        inPoint = 0
+        outPoint = info.duration
     }
 
-    /// 이 테이크에서 보여줄 시각. 길이를 넘으면 마지막 프레임(끝 1ms 앞)에 묶는다.
-    func clampedTime(_ seconds: Double) -> Double {
+    func resetInOut() {
+        inPoint = 0
+        outPoint = info?.duration ?? 0
+    }
+
+    /// 공통 타임라인 t(In 기준 상대 시각)에서 이 테이크가 보여줄 절대 시각.
+    func absoluteTime(at t: Double) -> Double {
         guard let info else { return 0 }
-        return TimeFormat.clamp(seconds, duration: info.duration)
+        return InOut.absoluteTime(t: t, inPoint: inPoint, outPoint: outPoint, duration: info.duration)
+    }
+
+    /// t에서 이 테이크가 이미 자기 Out을 넘어 Out 프레임에 멈춰 있는지
+    func isHeld(at t: Double) -> Bool {
+        t > span + InOut.epsilon
+    }
+
+    /// 앞으로 한 프레임 갈 수 있는 마지막 위치(이 시각의 프레임이 마지막으로 보일 프레임)
+    var lastFrameStart: Double {
+        guard let info else { return 0 }
+        return min(outPoint, info.duration - frameDuration)
+    }
+
+    /// 플레이어가 지금 실제로 서 있는 절대 시각
+    var playerTime: CMTime? { player?.currentTime() }
+
+    /// Out은 플레이어의 forwardPlaybackEndTime으로 건다 — 재생이 Out에서 저절로 멈추고 끝 알림이 온다.
+    private func applyOutPoint() {
+        guard let item = player?.currentItem, let info else { return }
+        item.forwardPlaybackEndTime = outPoint < info.duration - InOut.epsilon ? TimeFormat.cmTime(outPoint) : .invalid
+    }
+}
+
+/// In/Out 타임라인 계산 (순수 함수 — 검증 스크립트도 같이 쓴다)
+enum InOut {
+    /// 같은 시각으로 볼 오차(초). 가장 빠른 영상(240fps)의 한 프레임보다 훨씬 작다.
+    static let epsilon = 0.0001
+
+    /// 공통 t에서 보여줄 절대 시각 = In + t. Out을 넘으면 Out, 길이를 넘으면 마지막 프레임.
+    static func absoluteTime(t: Double, inPoint: Double, outPoint: Double, duration: Double) -> Double {
+        TimeFormat.clamp(min(inPoint + max(0, t), outPoint), duration: duration)
+    }
+
+    /// 첫 테이크 기준 오프셋(프레임). `+3`이면 첫 테이크보다 3프레임 늦은 곳이 In.
+    static func offsetFrames(inPoint: Double, referenceIn: Double, fps: Double) -> Int {
+        Int(((inPoint - referenceIn) * fps).rounded())
     }
 }
 

@@ -68,6 +68,8 @@ struct ContentView: View {
             take: take,
             isSelected: take.index == model.selectedIndex,
             isMuted: model.isMuted,
+            offsetFrames: model.offsetFrames(of: take),
+            timelineTime: model.currentTime,
             onSelect: { model.select(take.index) }
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -104,21 +106,20 @@ struct ContentView: View {
             .help(String(localized: "재생/정지 (스페이스)"))
             .disabled(model.readyTakes.isEmpty)
 
-            Text(verbatim: TimeFormat.clock(model.currentTime))
+            // t / 범위 (In 기준 상대 시각)
+            Text(verbatim: "\(TimeFormat.clock(model.currentTime)) / \(TimeFormat.clock(model.range))")
                 .font(.system(.body, design: .monospaced))
+                .help(String(localized: "In 기준 시각 / 범위(가장 긴 In~Out)"))
             Slider(
                 value: Binding(
                     get: { model.currentTime },
                     set: { model.seekAll(to: $0) }
                 ),
-                in: 0...max(model.duration, 0.01),
+                in: 0...max(model.range, 0.01),
                 onEditingChanged: { model.scrubbing($0) }
             )
             .controlSize(.small)
-            .disabled(model.readyTakes.isEmpty)
-            Text(verbatim: TimeFormat.clock(model.duration))
-                .font(.system(.body, design: .monospaced))
-                .foregroundStyle(.secondary)
+            .disabled(model.readyTakes.isEmpty || model.isDiagnosing)
 
             Toggle(isOn: $model.loopEnabled) {
                 Image(systemName: "repeat")

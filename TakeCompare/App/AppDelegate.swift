@@ -93,32 +93,52 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
 
     private func handleKey(_ event: KeyPress) -> Bool {
         let mods = event.modifierFlags.intersection([.command, .option, .control, .shift])
-        guard !mods.contains(.command), !mods.contains(.option), !mods.contains(.control) else { return false }
+        guard !mods.contains(.command), !mods.contains(.control) else { return false }
         let shift = mods.contains(.shift)
+        let option = mods.contains(.option)
+
+        switch event.keyCode {
+        case 123, 124:                                                              // ← →
+            let sign = event.keyCode == 123 ? -1 : 1
+            switch (option, shift) {
+            case (false, false): model.step(frames: sign)                           // 모든 테이크 1프레임
+            case (false, true): model.step(seconds: Double(sign))                   // 모든 테이크 1초
+            case (true, false): model.nudgeSelected(frames: sign)                   // 선택 테이크만 1프레임
+            case (true, true): model.nudgeSelected(seconds: Double(sign))           // 선택 테이크만 1초
+            }
+            return true
+        default: break
+        }
+        guard !shift else { return false }
+
+        // 글자 키는 한글 입력 상태에서도 되도록 자판 위치(keyCode)도 같이 본다.
+        let chars = event.charactersIgnoringModifiers?.lowercased() ?? ""
+        func isKey(_ char: String, _ code: UInt16) -> Bool { chars == char || event.keyCode == code }
+
+        if option {
+            if isKey("i", 34) { model.clearIn(); return true }
+            if isKey("o", 31) { model.clearOut(); return true }
+            return false
+        }
 
         switch event.keyCode {
         case 49: model.togglePlay(); return true                                   // 스페이스
-        case 123: shift ? model.step(seconds: -1) : model.step(frames: -1); return true // ←
-        case 124: shift ? model.step(seconds: 1) : model.step(frames: 1); return true   // →
         case 115: model.goToStart(); return true                                   // Home
         case 119: model.goToEnd(); return true                                     // End
         case 53: model.showGrid(); return true                                     // Esc
         default: break
         }
-        guard !shift, let chars = event.charactersIgnoringModifiers?.lowercased() else { return false }
         switch chars {
         case "1", "2", "3", "4":
             model.toggleSolo(Int(chars)! - 1)
             return true
-        case "l":
-            model.toggleLoop()
-            return true
-        case "m":
-            model.toggleMute()
-            return true
-        default:
-            return false
+        default: break
         }
+        if isKey("i", 34) { model.markIn(); return true }
+        if isKey("o", 31) { model.markOut(); return true }
+        if isKey("l", 37) { model.toggleLoop(); return true }
+        if isKey("m", 46) { model.toggleMute(); return true }
+        return false
     }
 
     // MARK: - 메뉴 동작
@@ -151,6 +171,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     @objc func goToEnd(_ sender: Any?) { model.goToEnd() }
     @objc func toggleLoop(_ sender: Any?) { model.toggleLoop() }
     @objc func toggleMute(_ sender: Any?) { model.toggleMute() }
+    @objc func markIn(_ sender: Any?) { model.markIn() }
+    @objc func markOut(_ sender: Any?) { model.markOut() }
+    @objc func clearIn(_ sender: Any?) { model.clearIn() }
+    @objc func clearOut(_ sender: Any?) { model.clearOut() }
+    @objc func clearAllInOut(_ sender: Any?) { model.clearAllInOut() }
+    @objc func nudgeBackFrame(_ sender: Any?) { model.nudgeSelected(frames: -1) }
+    @objc func nudgeForwardFrame(_ sender: Any?) { model.nudgeSelected(frames: 1) }
+    @objc func nudgeBackSecond(_ sender: Any?) { model.nudgeSelected(seconds: -1) }
+    @objc func nudgeForwardSecond(_ sender: Any?) { model.nudgeSelected(seconds: 1) }
+    @objc func runStepSelfTest(_ sender: Any?) { model.runStepSelfTest() }
 
     func validateMenuItem(_ item: NSMenuItem) -> Bool {
         let hasReady = !model.readyTakes.isEmpty
@@ -158,11 +188,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         case #selector(saveAllFrames(_:)), #selector(saveSelectedFrame(_:)),
              #selector(togglePlay(_:)), #selector(stepBackFrame(_:)), #selector(stepForwardFrame(_:)),
              #selector(stepBackSecond(_:)), #selector(stepForwardSecond(_:)),
-             #selector(goToStart(_:)), #selector(goToEnd(_:)):
+             #selector(goToStart(_:)), #selector(goToEnd(_:)), #selector(clearAllInOut(_:)):
             if item.action == #selector(togglePlay(_:)) {
                 item.title = model.isPlaying ? String(localized: "정지") : String(localized: "재생")
             }
             return hasReady
+        case #selector(markIn(_:)), #selector(markOut(_:)), #selector(clearIn(_:)), #selector(clearOut(_:)),
+             #selector(nudgeBackFrame(_:)), #selector(nudgeForwardFrame(_:)),
+             #selector(nudgeBackSecond(_:)), #selector(nudgeForwardSecond(_:)):
+            return model.selectedTake != nil && !model.isDiagnosing
+        case #selector(runStepSelfTest(_:)):
+            return hasReady && !model.isDiagnosing
         case #selector(showGrid(_:)):
             item.state = model.soloIndex == nil ? .on : .off
             return model.hasTakes

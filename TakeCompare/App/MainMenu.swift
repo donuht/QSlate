@@ -77,8 +77,21 @@ enum MainMenu {
         menu.addItem(item(String(localized: "처음으로"), #selector(AppDelegate.goToStart(_:)), key(NSHomeFunctionKey), [], target: t))
         menu.addItem(item(String(localized: "끝으로"), #selector(AppDelegate.goToEnd(_:)), key(NSEndFunctionKey), [], target: t))
         menu.addItem(.separator())
+        let left = key(NSLeftArrowFunctionKey), right = key(NSRightArrowFunctionKey)
+        menu.addItem(item(String(localized: "In 설정 (선택한 테이크)"), #selector(AppDelegate.markIn(_:)), "i", [], target: t))
+        menu.addItem(item(String(localized: "Out 설정 (선택한 테이크)"), #selector(AppDelegate.markOut(_:)), "o", [], target: t))
+        menu.addItem(item(String(localized: "In 초기화 (선택한 테이크)"), #selector(AppDelegate.clearIn(_:)), "i", [.option], target: t))
+        menu.addItem(item(String(localized: "Out 초기화 (선택한 테이크)"), #selector(AppDelegate.clearOut(_:)), "o", [.option], target: t))
+        menu.addItem(item(String(localized: "인·아웃 모두 초기화"), #selector(AppDelegate.clearAllInOut(_:)), target: t))
+        menu.addItem(item(String(localized: "선택한 테이크만 1프레임 뒤로"), #selector(AppDelegate.nudgeBackFrame(_:)), left, [.option], target: t))
+        menu.addItem(item(String(localized: "선택한 테이크만 1프레임 앞으로"), #selector(AppDelegate.nudgeForwardFrame(_:)), right, [.option], target: t))
+        menu.addItem(item(String(localized: "선택한 테이크만 1초 뒤로"), #selector(AppDelegate.nudgeBackSecond(_:)), left, [.option, .shift], target: t))
+        menu.addItem(item(String(localized: "선택한 테이크만 1초 앞으로"), #selector(AppDelegate.nudgeForwardSecond(_:)), right, [.option, .shift], target: t))
+        menu.addItem(.separator())
         menu.addItem(item(String(localized: "루프"), #selector(AppDelegate.toggleLoop(_:)), "l", [], target: t))
         menu.addItem(item(String(localized: "전체 음소거"), #selector(AppDelegate.toggleMute(_:)), "m", [], target: t))
+        menu.addItem(.separator())
+        menu.addItem(item(String(localized: "프레임 이동 자가진단"), #selector(AppDelegate.runStepSelfTest(_:)), target: t))
         return menu
     }
 
