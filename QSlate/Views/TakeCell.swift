@@ -333,7 +333,8 @@ struct TakeBar: View {
                                 let left = min(max(0, pointerX - d.width / 2), max(0, width - d.width))
                                 return -left
                             }
-                            .alignmentGuide(.top) { d in d.height + 6 }
+                            // 바 **위**에 띄운다(아래로 내리면 공통 조작 줄에 가려 잘린다).
+                            .offset(y: -(BarThumbnailBubble.totalHeight(aspect: aspect) + 6))
                             .allowsHitTesting(false)
                     }
                 }

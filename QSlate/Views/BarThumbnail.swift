@@ -9,6 +9,11 @@ struct BarThumbnailBubble: View {
 
     static let width: CGFloat = 160
 
+    /// 말풍선 전체 높이(이미지 + 글자줄 + 여백) — 바 위에 띄울 때 오프셋 계산용
+    static func totalHeight(aspect: Double) -> CGFloat {
+        (width / CGFloat(max(aspect, 0.1))).rounded() + 3 + 14 + 8
+    }
+
     var body: some View {
         // revision을 읽어 두면 새 썸네일이 들어올 때 다시 그린다.
         let _ = cache.revision
