@@ -171,6 +171,17 @@ struct ContentView: View {
             .controlSize(.small)
             .help(String(localized: "모든 테이크의 In/Out을 초기화"))
             .disabled(!model.hasAnyInOut || model.isDiagnosing)
+
+            // 바 위 썸네일 미리보기 켬/끔 (T) — 공통 줄 오른쪽 끝
+            Toggle(isOn: Binding(
+                get: { model.showBarThumbnails },
+                set: { model.setBarThumbnails($0) }
+            )) {
+                Image(systemName: "photo.on.rectangle")
+            }
+            .toggleStyle(.button)
+            .help(String(localized: "바 위 썸네일 미리보기 켜고 끄기 (T)"))
+            .accessibilityLabel(Text(verbatim: String(localized: "바 위 썸네일 미리보기 켜고 끄기 (T)")))
         }
     }
 

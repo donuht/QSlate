@@ -95,6 +95,7 @@ enum MainMenu {
         menu.addItem(.separator())
         menu.addItem(item(String(localized: "루프"), #selector(AppDelegate.toggleLoop(_:)), "l", [], target: t))
         menu.addItem(item(String(localized: "전체 음소거"), #selector(AppDelegate.toggleMute(_:)), "m", [], target: t))
+        menu.addItem(item(String(localized: "바 위 썸네일 미리보기"), #selector(AppDelegate.toggleBarThumbnails(_:)), "t", [], target: t))
         menu.addItem(.separator())
         menu.addItem(item(String(localized: "프레임 이동 자가진단"), #selector(AppDelegate.runStepSelfTest(_:)), target: t))
         return menu

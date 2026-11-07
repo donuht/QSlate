@@ -1450,6 +1450,66 @@
           }
         }
       }
+    },
+    "테이크 %lld: Out이 첫 프레임이라 In을 옮길 수 없습니다": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Take %lld: Out is on the first frame, so In cannot move"
+          }
+        }
+      }
+    },
+    "테이크 %lld: In이 마지막 프레임이라 Out을 옮길 수 없습니다": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Take %lld: In is on the last frame, so Out cannot move"
+          }
+        }
+      }
+    },
+    "바 위 썸네일 미리보기 켬 (T)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bar thumbnail preview on (T)"
+          }
+        }
+      }
+    },
+    "바 위 썸네일 미리보기 끔 (T)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bar thumbnail preview off (T)"
+          }
+        }
+      }
+    },
+    "바 위 썸네일 미리보기": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thumbnail Preview on Bars"
+          }
+        }
+      }
+    },
+    "바 위 썸네일 미리보기 켜고 끄기 (T)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show/hide bar thumbnail preview (T)"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

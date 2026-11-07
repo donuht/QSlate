@@ -19,6 +19,10 @@ final class CompareModel {
     private(set) var isPlaying = false
     var loopEnabled = true
     private(set) var isMuted = false
+    /// 칸 바 위 호버 썸네일 켬/끔(보기 메뉴 · T · 공통 줄 버튼). 앱을 다시 켜도 유지 — UserDefaults `showBarThumbnails`, 기본 켬.
+    /// 끄면 바가 썸네일 캐시를 받지 않아 말풍선도, 썸네일 생성 요청도, 캐시도 없다.
+    private(set) var showBarThumbnails = UserDefaults.standard.object(forKey: CompareModel.barThumbnailsKey) as? Bool ?? true
+    static let barThumbnailsKey = "showBarThumbnails"
     /// 선택한 테이크(0부터) — 소리, In/Out, ⌥화살표(그 테이크만 이동)의 대상
     private(set) var selectedIndex = 0
     /// 보기 모드: 격자 / 한 테이크만 크게 / 두 테이크 겹쳐 보기(A 아래, B 위)
@@ -102,7 +106,7 @@ final class CompareModel {
     /// 공통 슬라이더를 잡고 있는 중 — 이 동안 I/O는 받지 않는다(재생 중 잡았으면 표시가 어긋난다).
     @ObservationIgnored private(set) var isScrubbing = false
     /// 칸 바 끌기: 아직 반영하지 않은 마지막 목표(테이크 번호, 원본 기준 초)
-    @ObservationIgnored private var takeScrubTarget: (index: Int, seconds: Double)?
+    @ObservationIgnored private var takeScrubTarget: (index: Int, seconds: Double, note: String?)?
     /// 칸 ▶(그 테이크만 재생) 중인 테이크별 관찰자: 위치 갱신용 주기 관찰자 + 끝(Out·파일 끝) 알림
     @ObservationIgnored private var soloObservers: [Int: (player: AVPlayer, time: Any, end: NSObjectProtocol)] = [:]
     @ObservationIgnored private var loadGeneration = 0
@@ -896,18 +900,73 @@ final class CompareModel {
     /// 끄는 중 쏟아지는 값은 앞 이동이 끝날 때까지 마지막 하나만 남긴다.
     func seekTake(_ index: Int, toAbsolute seconds: Double) {
         guard !isDiagnosing, index >= 0, index < takes.count, takes[index].isReady else { return }
+        queueTakeSeek(index, toAbsolute: seconds, note: nil)
+    }
+
+    /// `seekTake` 본체: 그 칸을 고르고 재생을 멈춘 뒤, 앞 이동이 끝나면 마지막 목표 하나로만 간다.
+    /// `note`가 있으면 이동 뒤 상태줄에 위치 대신 그 글을 띄운다(손잡이 끌기 — `테이크 2 In = …`).
+    private func queueTakeSeek(_ index: Int, toAbsolute seconds: Double, note: String?) {
         if selectedIndex != index { select(index) }
         if isPlaying { pause() }
         stopSolo(takes[index], snap: false)
         let alreadyQueued = takeScrubTarget != nil
-        takeScrubTarget = (index, seconds)
+        takeScrubTarget = (index, seconds, note)
         guard !alreadyQueued else { return }
         whenSettled { [weak self] in
             guard let self, let target = self.takeScrubTarget else { return }
             self.takeScrubTarget = nil
             guard target.index < self.takes.count else { return }
-            self.performTakeSeek(self.takes[target.index], toAbsolute: target.seconds)
+            self.performTakeSeek(self.takes[target.index], toAbsolute: target.seconds, note: target.note)
         }
+    }
+
+    // MARK: - 바 손잡이로 In/Out 끌기
+    //
+    // 칸 바의 In·Out 손잡이를 끌 때. 그 표식 하나만 바꾸고(위치 계산은 `frameStart(near:)`로 프레임 시작에 맞춤),
+    // 그 테이크만 그 프레임으로 옮겨 보여준다(seekTake와 같은 큐 — 놓으면 그 자리에 머문다). 다른 테이크·다른 표식은 그대로.
+    // In < Out을 지킨다(최소 1프레임). 넘으면 상대 표식 바로 옆에 붙어 멈춘다. 끝(처음·파일 끝)까지 끌면 표식 없음으로 돌아간다.
+
+    /// In 손잡이: In = `seconds`가 든 프레임(최대 Out 프레임 − 1프레임). 0이면 In 없음(처음).
+    func setIn(_ index: Int, to seconds: Double) {
+        guard !isDiagnosing, !rejectWhileScrubbing(), index >= 0, index < takes.count, takes[index].isReady else { return }
+        let take = takes[index]
+        let fd = take.frameDuration
+        // Out 프레임(Out이 없으면 원본 마지막 프레임)의 바로 앞 프레임까지
+        let maxIn = take.lastFrameStart - fd
+        guard maxIn > -fd * 0.5 else {
+            setStatus(String(localized: "테이크 \(index + 1): Out이 첫 프레임이라 In을 옮길 수 없습니다"))
+            return
+        }
+        let target = min(take.frameStart(near: seconds), take.frameStart(near: maxIn))
+        if abs(target - take.inPoint) > InOut.epsilon {
+            take.inPoint = target
+            inOutChanged()
+        }
+        queueTakeSeek(index, toAbsolute: target,
+                      note: String(localized: "테이크 \(index + 1) In = \(TimeFormat.clock(target))") + offsetNote(take))
+    }
+
+    /// Out 손잡이: Out = `seconds`가 든 프레임(최소 In 프레임 + 1프레임). 원본 마지막 프레임이면 Out 없음(끝).
+    func setOut(_ index: Int, to seconds: Double) {
+        guard !isDiagnosing, !rejectWhileScrubbing(), index >= 0, index < takes.count, takes[index].isReady,
+              let duration = takes[index].info?.duration else { return }
+        let take = takes[index]
+        let fd = take.frameDuration
+        let last = take.fileLastFrameStart
+        let minOut = take.frameStart(near: take.inPoint) + fd
+        guard minOut <= last + fd * 0.5 else {
+            setStatus(String(localized: "테이크 \(index + 1): In이 마지막 프레임이라 Out을 옮길 수 없습니다"))
+            return
+        }
+        let target = max(take.frameStart(near: seconds), take.frameStart(near: minOut))
+        // 원본 마지막 프레임 = Out 없음(파일 끝까지)
+        let newOut = target >= last - InOut.epsilon ? duration : target
+        if abs(newOut - take.outPoint) > InOut.epsilon {
+            take.outPoint = newOut
+            inOutChanged()
+        }
+        queueTakeSeek(index, toAbsolute: target,
+                      note: String(localized: "테이크 \(index + 1) Out = \(TimeFormat.clock(target))"))
     }
 
     /// 칸 아래 바를 잡을 때: 그 칸을 고르고 재생을 멈춘다. 놓을 때는 아무것도 하지 않는다(그 자리에 둔다).
@@ -946,13 +1005,13 @@ final class CompareModel {
         setStatus(positionNote(take, at: target))
     }
 
-    private func performTakeSeek(_ take: Take, toAbsolute seconds: Double) {
+    private func performTakeSeek(_ take: Take, toAbsolute seconds: Double, note: String? = nil) {
         let target = take.frameStart(near: seconds)
         if abs(target - take.frameStart(near: absoluteNow(take))) > InOut.epsilon {
             scatter()
             seekPlayer(of: take, toFrameContaining: target)
         }
-        setStatus(positionNote(take, at: target))
+        setStatus(note ?? positionNote(take, at: target))
     }
 
     /// `테이크 2 위치 00:00.21 (5f)` — 원본 기준
@@ -1355,6 +1414,19 @@ final class CompareModel {
         guard index < takes.count else { return }
         selectedIndex = index
         applyAudio()
+    }
+
+    /// 보기 → 바 위 썸네일 미리보기 (T)
+    func toggleBarThumbnails() {
+        setBarThumbnails(!showBarThumbnails)
+    }
+
+    func setBarThumbnails(_ on: Bool) {
+        showBarThumbnails = on
+        UserDefaults.standard.set(on, forKey: Self.barThumbnailsKey)
+        // 끄는 순간 기다리던 생성 요청은 버린다(이미 만든 캐시는 그대로 두고, 끈 동안은 새로 만들지 않는다).
+        if !on { for take in takes { take.existingThumbnails?.cancelPending() } }
+        setStatus(on ? String(localized: "바 위 썸네일 미리보기 켬 (T)") : String(localized: "바 위 썸네일 미리보기 끔 (T)"))
     }
 
     func toggleMute() {

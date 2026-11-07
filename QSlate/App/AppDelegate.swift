@@ -157,6 +157,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         if isKey("o", 31) { model.markOut(); return true }
         if isKey("l", 37) { model.toggleLoop(); return true }
         if isKey("m", 46) { model.toggleMute(); return true }
+        if isKey("t", 17) { model.toggleBarThumbnails(); return true }
         return false
     }
 
@@ -194,6 +195,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     @objc func goToEnd(_ sender: Any?) { model.goToEnd() }
     @objc func toggleLoop(_ sender: Any?) { model.toggleLoop() }
     @objc func toggleMute(_ sender: Any?) { model.toggleMute() }
+    @objc func toggleBarThumbnails(_ sender: Any?) { model.toggleBarThumbnails() }
     @objc func markIn(_ sender: Any?) { model.markIn() }
     @objc func markOut(_ sender: Any?) { model.markOut() }
     @objc func clearIn(_ sender: Any?) { model.clearIn() }
@@ -206,7 +208,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     @objc func runStepSelfTest(_ sender: Any?) { model.runStepSelfTest() }
 
     func validateMenuItem(_ item: NSMenuItem) -> Bool {
-        // ⌘ 없는 단축키(스페이스·화살표·I/O/L/M/1~4/Esc/\)는 메인 창이 키 창일 때만 — 열기 패널·About 창에서
+        // ⌘ 없는 단축키(스페이스·화살표·I/O/L/M/T/1~4/Esc/\)는 메인 창이 키 창일 때만 — 열기 패널·About 창에서
         // 글자를 칠 때 메뉴 단축키로 새지 않게.
         if !item.keyEquivalent.isEmpty, !item.keyEquivalentModifierMask.contains(.command), NSApp.keyWindow !== window {
             return false
@@ -249,6 +251,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             return true
         case #selector(toggleMute(_:)):
             item.state = model.isMuted ? .on : .off
+            return true
+        case #selector(toggleBarThumbnails(_:)):
+            item.state = model.showBarThumbnails ? .on : .off
             return true
         default:
             return true

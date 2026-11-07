@@ -175,6 +175,8 @@ final class Take: Identifiable {
         thumbnailCache = cache
         return cache
     }
+    /// 이미 만든 캐시만(없으면 만들지 않는다)
+    var existingThumbnails: ThumbnailCache? { thumbnailCache }
 
     /// Out은 플레이어의 forwardPlaybackEndTime으로 건다 — 재생이 Out에서 저절로 멈추고 끝 알림이 온다.
     private func applyOutPoint() {

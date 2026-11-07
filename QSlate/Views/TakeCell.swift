@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 /// 테이크 한 칸: 위 라벨 + 영상 + 아래 조작 줄(그 테이크만 움직이는 버튼들과 자기 타임라인 바). 선택된 칸은 테두리 강조.
@@ -102,7 +103,7 @@ struct TakeDetails: View {
 /// 누르면 이 칸이 선택된다. 줄은 공통 조작(재생·슬라이더·← →)을 하면 각자 In 기준으로 다시 선다.
 ///
 ///     ▶ [00:01.25]  |◀ ◀◀ ◀ ▶ ▶▶ ▶|   [In 00:00.50] +3f [Out 00:03.20] ↺   🔊 ⤢   (맨 앞 ▶/❚❚ = 이 테이크만 재생/정지)
-///     ──────────[■■■■■■■■■■■■■■|■■■]──────────   ← 자기 타임라인 바(끌어서 스크럽)
+///     ─────────▐║║▌■■■■■■■■■■■■■|■■■▐║║▌─────────   ← 자기 타임라인 바(끌어서 스크럽, 양 끝 손잡이를 끌면 In/Out)
 struct TakeStrip: View {
     let take: Take
     let model: CompareModel
@@ -119,7 +120,10 @@ struct TakeStrip: View {
                     inPoint: take.inPoint,
                     outPoint: take.outPoint,
                     position: take.position,
-                    thumbnails: take.thumbnails,
+                    hasCustomIn: take.hasCustomIn,
+                    hasCustomOut: take.hasCustomOut,
+                    // 썸네일을 끄면 캐시를 넘기지 않는다 — 말풍선·생성 요청·캐시 모두 없음
+                    thumbnails: model.showBarThumbnails ? take.thumbnails : nil,
                     aspect: info.size.height > 0 ? info.size.width / info.size.height : 16 / 9,
                     onScrub: { phase in
                         switch phase {
@@ -127,9 +131,19 @@ struct TakeStrip: View {
                         case .moved(let seconds): model.seekTake(index, toAbsolute: seconds)
                         case .ended: model.takeScrubbing(index, began: false)
                         }
+                    },
+                    onTrim: { handle, phase in
+                        switch phase {
+                        case .began: model.takeScrubbing(index, began: true)
+                        case .moved(let seconds):
+                            switch handle {
+                            case .inPoint: model.setIn(index, to: seconds)
+                            case .outPoint: model.setOut(index, to: seconds)
+                            }
+                        case .ended: model.takeScrubbing(index, began: false)
+                        }
                     }
                 )
-                .frame(height: 10)
                 .disabled(disabled)
             }
         }
@@ -293,6 +307,9 @@ private struct StripButtonBody: View {
 }
 
 /// 칸 아래 자기 타임라인 바: 전체 길이 대비 In~Out 구간(강조색), 바깥은 흐리게, 현재 위치는 세로선. 끌어서 이 테이크만 스크럽.
+/// In~Out 양 끝에는 트림 손잡이(세로 줄무늬 2줄)가 있어 끌면 그 표식만 옮긴다 — 손잡이가 바 스크럽보다 우선.
+///
+///     ░░░░░░░▐║║▌████████|██████▐║║▌░░░░░░   ← ▐║║▌ = In·Out 손잡이(바보다 위아래 3pt 큼), 미설정이면 바 양 끝에 흐리게
 struct TakeBar: View {
     enum ScrubPhase {
         case began
@@ -300,20 +317,53 @@ struct TakeBar: View {
         case ended
     }
 
+    enum Handle {
+        case inPoint
+        case outPoint
+    }
+
     let duration: Double
     let inPoint: Double
     let outPoint: Double
     let position: Double
-    /// 호버 썸네일(없으면 말풍선 없음)
+    /// In·Out이 설정돼 있는가(미설정이면 손잡이를 흐리게)
+    var hasCustomIn = false
+    var hasCustomOut = false
+    /// 호버 썸네일(없으면 말풍선 없음 — 보기 → 바 위 썸네일 미리보기를 끄면 nil)
     var thumbnails: ThumbnailCache?
     /// 영상 가로/세로
     var aspect: Double = 16 / 9
     let onScrub: (ScrubPhase) -> Void
+    /// 손잡이 끌기(없으면 손잡이를 그리지 않는다). `.moved`의 값은 원본 기준 초.
+    var onTrim: ((Handle, ScrubPhase) -> Void)?
 
-    @State private var isDragging = false
+    /// 바 두께
+    static let barHeight: CGFloat = 10
+    /// 손잡이: 폭 8pt, 바보다 위아래 3pt씩 크다
+    static let handleWidth: CGFloat = 8
+    static let handleOverhang: CGFloat = 3
+    /// 손잡이 히트 영역은 그린 것보다 좌우 4pt 넓다
+    static let handleSlop: CGFloat = 4
+    /// 뷰 전체 높이(손잡이 높이)
+    static var height: CGFloat { barHeight + handleOverhang * 2 }
+
+    private enum DragMode {
+        case scrub
+        /// grab = 잡은 점과 손잡이가 가리키는 x의 차이(잡자마자 튀지 않게)
+        case trim(Handle, grab: CGFloat)
+    }
+
+    @State private var dragMode: DragMode?
     /// 마우스(또는 끌기)가 가리키는 바 위 x — nil이면 말풍선 없음
     @State private var pointerX: CGFloat?
     @State private var isHovering = false
+    @State private var cursorPushed = false
+
+    private var isDragging: Bool { dragMode != nil }
+    private var trimming: Handle? {
+        if case .trim(let handle, _) = dragMode { return handle }
+        return nil
+    }
 
     var body: some View {
         GeometryReader { geo in
@@ -322,32 +372,125 @@ struct TakeBar: View {
             let start = min(max(0, inPoint * scale), width)
             let end = min(max(start, outPoint * scale), width)
             let x = min(max(0, position * scale), width)
-            bar(width: width, start: start, end: end, x: x)
-                .overlay(alignment: .topLeading) {
-                    if let pointerX, let thumbnails, width > 0 {
-                        let frame = thumbnails.frame(at: Double(pointerX / width) * duration)
-                        // 말풍선 가운데를 마우스 x에(바 양 끝에서는 안쪽으로 붙임), 세로는 바 **위**에.
-                        // 정렬 가이드는 호버 중 다시 계산되지 않아 따라오지 않았다 — 명시적 offset으로 둔다.
-                        let bubbleWidth = BarThumbnailBubble.width + 8
-                        let left = min(max(0, pointerX - bubbleWidth / 2), max(0, width - bubbleWidth))
-                        BarThumbnailBubble(cache: thumbnails, frame: frame, aspect: aspect)
-                            .fixedSize()
-                            .offset(x: left, y: -(BarThumbnailBubble.totalHeight(aspect: aspect) + 6))
-                            .allowsHitTesting(false)
+            ZStack(alignment: .leading) {
+                bar(width: width, start: start, end: end, x: x)
+                    .frame(height: Self.barHeight)
+                if onTrim != nil {
+                    TrimHandleView(dim: !hasCustomIn, active: trimming == .inPoint)
+                        .offset(x: handleLeft(start, width: width))
+                    TrimHandleView(dim: !hasCustomOut, active: trimming == .outPoint)
+                        .offset(x: handleLeft(end, width: width))
+                }
+            }
+            .frame(width: width, height: geo.size.height)
+            .contentShape(Rectangle())
+            .gesture(dragGesture(width: width, start: start, end: end))
+            .overlay(alignment: .topLeading) {
+                if let pointerX, let thumbnails, width > 0 {
+                    // 손잡이를 끄는 중이면 말풍선은 손잡이(실제로 멈춘 자리)를 따라가고 그 프레임을 보여준다.
+                    let anchorX = trimming == .inPoint ? start : trimming == .outPoint ? end : pointerX
+                    let seconds = trimming == .inPoint ? inPoint : trimming == .outPoint ? outPoint : Double(pointerX / width) * duration
+                    let frame = thumbnails.frame(at: seconds)
+                    // 말풍선 가운데를 마우스 x에(바 양 끝에서는 안쪽으로 붙임), 세로는 바 **위**에.
+                    // 정렬 가이드는 호버 중 다시 계산되지 않아 따라오지 않았다 — 명시적 offset으로 둔다.
+                    let bubbleWidth = BarThumbnailBubble.width + 8
+                    let left = min(max(0, anchorX - bubbleWidth / 2), max(0, width - bubbleWidth))
+                    BarThumbnailBubble(cache: thumbnails, frame: frame, aspect: aspect)
+                        .fixedSize()
+                        .offset(x: left, y: -(BarThumbnailBubble.totalHeight(aspect: aspect) + 6))
+                        .allowsHitTesting(false)
+                }
+            }
+            .onContinuousHover { phase in
+                switch phase {
+                case .active(let point):
+                    isHovering = true
+                    if !isDragging { setResizeCursor(handle(at: point.x, width: width, start: start, end: end) != nil) }
+                    // 손잡이를 끄는 중에는 말풍선 위치·요청을 끌기가 맡는다.
+                    if trimming == nil { pointAt(point.x, width: width) }
+                case .ended:
+                    isHovering = false
+                    if !isDragging {
+                        setResizeCursor(false)
+                        leave()
                     }
                 }
-                .onContinuousHover { phase in
-                    switch phase {
-                    case .active(let point):
-                        isHovering = true
-                        pointAt(point.x, width: width)
-                    case .ended:
-                        isHovering = false
-                        if !isDragging { leave() }
-                    }
-                }
+            }
+            .onChange(of: inPoint) { _, new in if trimming == .inPoint { requestThumbnail(at: new) } }
+            .onChange(of: outPoint) { _, new in if trimming == .outPoint { requestThumbnail(at: new) } }
         }
+        .frame(height: Self.height)
+        .onDisappear { setResizeCursor(false) }
         .accessibilityHidden(true)
+    }
+
+    /// 손잡이 왼쪽 x: 가리키는 지점(edge)에 손잡이 가운데를 두되, 바 안으로 붙인다.
+    private func handleLeft(_ edge: CGFloat, width: CGFloat) -> CGFloat {
+        min(max(0, edge - Self.handleWidth / 2), max(0, width - Self.handleWidth))
+    }
+
+    /// x가 손잡이(좌우 4pt 여유 포함) 위인가. 두 손잡이가 겹치면 In~Out 가운데보다 왼쪽은 In, 오른쪽은 Out.
+    private func handle(at x: CGFloat, width: CGFloat, start: CGFloat, end: CGFloat) -> Handle? {
+        guard onTrim != nil, width > 0 else { return nil }
+        func hit(_ edge: CGFloat) -> Bool {
+            let left = handleLeft(edge, width: width)
+            return x >= left - Self.handleSlop && x <= left + Self.handleWidth + Self.handleSlop
+        }
+        switch (hit(start), hit(end)) {
+        case (true, true): return x < (start + end) / 2 ? .inPoint : .outPoint
+        case (true, false): return .inPoint
+        case (false, true): return .outPoint
+        default: return nil
+        }
+    }
+
+    private func dragGesture(width: CGFloat, start: CGFloat, end: CGFloat) -> some Gesture {
+        DragGesture(minimumDistance: 0)
+            .onChanged { value in
+                if dragMode == nil {
+                    if let grabbed = handle(at: value.startLocation.x, width: width, start: start, end: end), let onTrim {
+                        let edge = grabbed == .inPoint ? start : end
+                        dragMode = .trim(grabbed, grab: value.startLocation.x - edge)
+                        setResizeCursor(true)
+                        onTrim(grabbed, .began)
+                    } else {
+                        dragMode = .scrub
+                        onScrub(.began)
+                    }
+                }
+                guard width > 0 else { return }
+                switch dragMode {
+                case .trim(let grabbed, let grab):
+                    let edgeX = min(max(0, value.location.x - grab), width)
+                    let seconds = Double(edgeX / width) * duration
+                    onTrim?(grabbed, .moved(seconds))
+                    // 말풍선을 켜 두고(위치·프레임은 손잡이가 멈춘 자리), 가려는 프레임을 미리 요청한다.
+                    pointerX = edgeX
+                    requestThumbnail(at: seconds)
+                default:
+                    let fraction = min(max(0, value.location.x / width), 1)
+                    onScrub(.moved(fraction * duration))
+                    // 끄는 중에도 말풍선이 따라간다(어디로 가는지 보이게).
+                    pointAt(value.location.x, width: width)
+                }
+            }
+            .onEnded { value in
+                let mode = dragMode
+                dragMode = nil
+                switch mode {
+                case .trim(let grabbed, _):
+                    onTrim?(grabbed, .ended)
+                default:
+                    onScrub(.ended)
+                }
+                if isHovering {
+                    setResizeCursor(handle(at: value.location.x, width: width, start: start, end: end) != nil)
+                    pointAt(value.location.x, width: width)
+                } else {
+                    setResizeCursor(false)
+                    leave()
+                }
+            }
     }
 
     /// 말풍선을 x로 옮기고 그 프레임 썸네일을 요청한다.
@@ -358,43 +501,61 @@ struct TakeBar: View {
         thumbnails.request(frame: thumbnails.frame(at: Double(x / width) * duration))
     }
 
+    private func requestThumbnail(at seconds: Double) {
+        guard let thumbnails else { return }
+        thumbnails.request(frame: thumbnails.frame(at: seconds))
+    }
+
     private func leave() {
         pointerX = nil
         thumbnails?.cancelPending()
     }
 
+    /// 손잡이 위(또는 손잡이를 끄는 중)에서 좌우 리사이즈 커서
+    private func setResizeCursor(_ on: Bool) {
+        guard on != cursorPushed else { return }
+        if on { NSCursor.resizeLeftRight.push() } else { NSCursor.pop() }
+        cursorPushed = on
+    }
+
     private func bar(width: CGFloat, start: CGFloat, end: CGFloat, x: CGFloat) -> some View {
-            ZStack(alignment: .leading) {
-                Rectangle().fill(Color.secondary.opacity(0.22))
-                Rectangle()
-                    .fill(Color.accentColor.opacity(isDragging ? 1 : 0.8))
-                    .frame(width: max(1, end - start))
-                    .offset(x: start)
-                Rectangle()
-                    .fill(Color.primary)
-                    .frame(width: 2)
-                    .offset(x: min(max(0, x - 1), width - 2))
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 2))
-            .contentShape(Rectangle())
-            .gesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { value in
-                        if !isDragging {
-                            isDragging = true
-                            onScrub(.began)
-                        }
-                        guard width > 0 else { return }
-                        let fraction = min(max(0, value.location.x / width), 1)
-                        onScrub(.moved(fraction * duration))
-                        // 끄는 중에도 말풍선이 따라간다(어디로 가는지 보이게).
-                        pointAt(value.location.x, width: width)
-                    }
-                    .onEnded { _ in
-                        isDragging = false
-                        onScrub(.ended)
-                        if !isHovering { leave() }
-                    }
+        ZStack(alignment: .leading) {
+            Rectangle().fill(Color.secondary.opacity(0.22))
+            Rectangle()
+                .fill(Color.accentColor.opacity(isDragging ? 1 : 0.8))
+                .frame(width: max(1, end - start))
+                .offset(x: start)
+            Rectangle()
+                .fill(Color.primary)
+                .frame(width: 2)
+                .offset(x: min(max(0, x - 1), width - 2))
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 2))
+    }
+}
+
+/// 트림 손잡이 하나: 폭 8pt · 높이 16pt 둥근 사각형, 안에 세로 줄무늬 2줄(프리미어·파컷의 트림 손잡이처럼).
+/// 미설정 표식이면 50%로 흐리게, 끄는 중이면 흰 테두리.
+struct TrimHandleView: View {
+    let dim: Bool
+    let active: Bool
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: 2.5)
+            .fill(Color.accentColor)
+            .overlay(
+                RoundedRectangle(cornerRadius: 2.5)
+                    .strokeBorder(active ? Color.white : Color.black.opacity(0.45), lineWidth: 1)
             )
+            .overlay(
+                HStack(spacing: 2) {
+                    Capsule().fill(Color.white.opacity(0.9)).frame(width: 1, height: 8)
+                    Capsule().fill(Color.white.opacity(0.9)).frame(width: 1, height: 8)
+                }
+            )
+            .frame(width: TakeBar.handleWidth, height: TakeBar.height)
+            .opacity(dim && !active ? 0.5 : 1)
+            .shadow(color: .black.opacity(0.3), radius: 1, y: 0.5)
+            .allowsHitTesting(false)
     }
 }
