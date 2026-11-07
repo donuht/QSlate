@@ -64,7 +64,12 @@ enum MainMenu {
 
     private static func viewMenu(_ t: AppDelegate) -> NSMenu {
         let menu = NSMenu(title: String(localized: "보기"))
-        menu.addItem(item(String(localized: "격자"), #selector(AppDelegate.showGrid(_:)), "\u{1b}", [], target: t))
+        menu.addItem(item(String(localized: "전체 보기"), #selector(AppDelegate.showGrid(_:)), "\u{1b}", [], target: t))
+        menu.addItem(item(String(localized: "단독 (선택한 테이크)"), #selector(AppDelegate.showSoloSelected(_:)), target: t))
+        menu.addItem(item(String(localized: "갈라보기"), #selector(AppDelegate.showWipe(_:)), "\\", [], target: t))
+        menu.addItem(item(String(localized: "겹치기"), #selector(AppDelegate.showBlend(_:)), "\\", [.shift], target: t))
+        menu.addItem(item(String(localized: "겹침 A/B 뒤집기"), #selector(AppDelegate.flipOverlay(_:)), target: t))
+        menu.addItem(.separator())
         for n in 1...CompareModel.maxTakes {
             menu.addItem(item(String(localized: "테이크 \(n)만 보기"), #selector(AppDelegate.showSolo(_:)), "\(n)", [], target: t, tag: n - 1))
         }

@@ -115,6 +115,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             case (true, true): model.moveSelected(seconds: Double(sign))            // 선택 테이크 위치만 1초 (In/Out 불변)
             }
             return true
+        case 42 where !option:                                                      // \ 갈라보기 · ⇧\ 겹치기 (다시 누르면 격자)
+            model.toggleOverlay(shift ? .blend : .wipe)
+            return true
+        case 33 where !option, 30 where !option:                                               // [ ] 갈라보기 선(겹치기면 투명도) 2% · ⇧ 10%
+            guard model.isOverlay else { return false }
+            let step = shift ? 0.10 : 0.02
+            model.nudgeOverlay(by: event.keyCode == 33 ? -step : step)
+            return true
         default: break
         }
         guard !shift else { return false }
@@ -139,6 +147,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         switch chars {
         case "1", "2", "3", "4":
             model.toggleSolo(Int(chars)! - 1)
+            return true
+        case "0":
+            model.showGrid()
             return true
         default: break
         }
@@ -170,6 +181,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     @objc func saveSelectedFrame(_ sender: Any?) { model.saveFrames(onlySelected: true) }
     @objc func showGrid(_ sender: Any?) { model.showGrid() }
     @objc func showSolo(_ sender: NSMenuItem) { model.toggleSolo(sender.tag) }
+    @objc func showSoloSelected(_ sender: Any?) { model.showSoloSelected() }
+    @objc func showWipe(_ sender: Any?) { model.toggleOverlay(.wipe) }
+    @objc func showBlend(_ sender: Any?) { model.toggleOverlay(.blend) }
+    @objc func flipOverlay(_ sender: Any?) { model.flipOverlay() }
     @objc func togglePlay(_ sender: Any?) { model.togglePlay() }
     @objc func stepBackFrame(_ sender: Any?) { model.step(frames: -1) }
     @objc func stepForwardFrame(_ sender: Any?) { model.step(frames: 1) }
@@ -208,8 +223,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         case #selector(runStepSelfTest(_:)):
             return hasReady && !model.isDiagnosing
         case #selector(showGrid(_:)):
-            item.state = model.soloIndex == nil ? .on : .off
+            item.state = model.viewMode == .grid ? .on : .off
             return model.hasTakes
+        case #selector(showSoloSelected(_:)):
+            item.state = model.soloIndex != nil ? .on : .off
+            return model.hasTakes
+        case #selector(showWipe(_:)):
+            item.state = model.isOverlay && model.overlayStyle == .wipe ? .on : .off
+            return model.canOverlay
+        case #selector(showBlend(_:)):
+            item.state = model.isOverlay && model.overlayStyle == .blend ? .on : .off
+            return model.canOverlay
+        case #selector(flipOverlay(_:)):
+            return model.isOverlay
         case #selector(showSolo(_:)):
             item.state = model.soloIndex == item.tag ? .on : .off
             return item.tag < model.takes.count

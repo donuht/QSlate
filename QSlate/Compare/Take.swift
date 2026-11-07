@@ -133,6 +133,16 @@ final class Take: Identifiable {
     /// 칸 ▶로 이 테이크만 재생 중인가(공통 재생 `isPlaying`과 별개). 모델만 바꾼다.
     var isSoloPlaying = false
 
+    /// 칸 바 호버 썸네일 캐시(처음 쓸 때 만든다). 못 읽은 테이크는 nil.
+    @ObservationIgnored private var thumbnailCache: ThumbnailCache?
+    var thumbnails: ThumbnailCache? {
+        if let thumbnailCache { return thumbnailCache }
+        guard let info else { return nil }
+        let cache = ThumbnailCache(url: url, fps: info.fps, duration: info.duration)
+        thumbnailCache = cache
+        return cache
+    }
+
     /// Out은 플레이어의 forwardPlaybackEndTime으로 건다 — 재생이 Out에서 저절로 멈추고 끝 알림이 온다.
     private func applyOutPoint() {
         guard let item = player?.currentItem, let info else { return }

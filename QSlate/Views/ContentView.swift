@@ -7,6 +7,10 @@ struct ContentView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            ViewModeToolbar(model: model)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+            Divider()
             stage
                 .padding(8)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -38,6 +42,8 @@ struct ContentView: View {
     private var stage: some View {
         if !model.hasTakes {
             emptyState
+        } else if let pair = model.overlayPair, pair.a < model.takes.count, pair.b < model.takes.count {
+            OverlayScreen(model: model, a: pair.a, b: pair.b)
         } else if let solo = model.soloIndex, solo < model.takes.count {
             cell(model.takes[solo])
         } else if model.takes.count <= 2 {
@@ -191,6 +197,15 @@ struct ContentView: View {
             if model.soloIndex != nil {
                 Text("단독 보기 — 같은 숫자 또는 Esc로 격자")
                     .foregroundStyle(.secondary)
+            } else if model.isOverlay {
+                Group {
+                    if model.overlayStyle == .wipe {
+                        Text("갈라보기 — 선을 끌거나 [ ] (⇧ 10%) · \\ 또는 Esc로 격자")
+                    } else {
+                        Text("겹치기 — [ ]로 투명도 (⇧ 10%) · ⇧\\ 또는 Esc로 격자")
+                    }
+                }
+                .foregroundStyle(.secondary)
             }
         }
         .font(.callout)
@@ -199,5 +214,78 @@ struct ContentView: View {
         .padding(.horizontal, 10)
         .padding(.vertical, 5)
         .background(.bar)
+    }
+}
+
+// MARK: - 보기 모드 줄
+
+/// 창 맨 위 줄: 왼쪽에 열린 파일 수·범위, 오른쪽에 보기 모드 4개(전체 보기·단독·갈라보기·겹치기).
+struct ViewModeToolbar: View {
+    let model: CompareModel
+
+    private enum Mode { case grid, solo, wipe, blend }
+
+    private var current: Mode {
+        switch model.viewMode {
+        case .grid: .grid
+        case .solo: .solo
+        case .overlay: model.overlayStyle == .wipe ? .wipe : .blend
+        }
+    }
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Text(verbatim: info)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+            Spacer(minLength: 12)
+            HStack(spacing: 2) {
+                modeButton(.grid, "square.grid.2x2", String(localized: "전체 보기"), String(localized: "전체 보기 — 격자 (Esc · 0)"), enabled: model.hasTakes) {
+                    model.showGrid()
+                }
+                modeButton(.solo, "rectangle", String(localized: "단독"), String(localized: "단독 — 선택한 테이크만 크게 (1~4)"), enabled: model.hasTakes) {
+                    model.showSoloSelected()
+                }
+                modeButton(.wipe, "rectangle.split.2x1", String(localized: "갈라보기"), String(localized: "갈라보기 — 세로선 왼쪽 A, 오른쪽 B (\\)"), enabled: model.canOverlay) {
+                    model.showOverlay(.wipe)
+                }
+                modeButton(.blend, "square.on.square", String(localized: "겹치기"), String(localized: "겹치기 — B를 반투명으로 위에 (⇧\\)"), enabled: model.canOverlay) {
+                    model.showOverlay(.blend)
+                }
+            }
+            .padding(2)
+            .background(RoundedRectangle(cornerRadius: 6).fill(Color.secondary.opacity(0.12)))
+        }
+        .frame(height: 26)
+    }
+
+    /// `테이크 2개 · 범위 00:03.00`
+    private var info: String {
+        guard model.hasTakes else { return String(localized: "열린 테이크 없음") }
+        let count = model.readyTakes.count
+        return String(localized: "테이크 \(count)개 · 범위 \(TimeFormat.clock(model.range))")
+    }
+
+    private func modeButton(_ mode: Mode, _ symbol: String, _ title: String, _ help: String, enabled: Bool, action: @escaping () -> Void) -> some View {
+        let isOn = current == mode && model.hasTakes
+        return Button(action: action) {
+            HStack(spacing: 4) {
+                Image(systemName: symbol)
+                Text(verbatim: title)
+            }
+            .font(.callout)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .foregroundStyle(isOn ? Color.white : Color.primary)
+            .background(RoundedRectangle(cornerRadius: 5).fill(isOn ? Color.accentColor : Color.clear))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(!enabled)
+        .opacity(enabled ? 1 : 0.4)
+        .help(help)
+        .accessibilityLabel(Text(verbatim: title))
+        .accessibilityAddTraits(isOn ? .isSelected : [])
     }
 }

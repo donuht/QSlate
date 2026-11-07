@@ -1140,6 +1140,286 @@
           }
         }
       }
+    },
+    "A — 아래, 선 왼쪽": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A — bottom, left of the line"
+          }
+        }
+      }
+    },
+    "A/B 뒤집기": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Swap A/B"
+          }
+        }
+      }
+    },
+    "B — 위, 선 오른쪽": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "B — top, right of the line"
+          }
+        }
+      }
+    },
+    "B의 불투명도 — [ ] (⇧는 10%)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opacity of B — [ ] (⇧ for 10%)"
+          }
+        }
+      }
+    },
+    "fps가 다릅니다 — 공통 1프레임은 테이크 %lld 기준": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "fps differ — a shared frame step follows take %lld"
+          }
+        }
+      }
+    },
+    "갈라보기": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Split"
+          }
+        }
+      }
+    },
+    "갈라보기 — 선을 끌거나 [ ] (⇧ 10%) · \\ 또는 Esc로 격자": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Split — drag the line or [ ] (⇧ 10%) · \\ or Esc for the grid"
+          }
+        }
+      }
+    },
+    "갈라보기 — 세로선 왼쪽 A, 오른쪽 B (\\)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Split — A left of the line, B right (\\)"
+          }
+        }
+      }
+    },
+    "갈라보기 선 위치 — 끌거나 [ ] (⇧는 10%)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Split line position — drag or [ ] (⇧ for 10%)"
+          }
+        }
+      }
+    },
+    "겹쳐 보려면 열린 테이크가 2개 이상 필요합니다": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Overlay needs at least 2 open takes"
+          }
+        }
+      }
+    },
+    "겹치기": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Blend"
+          }
+        }
+      }
+    },
+    "겹치기 — B를 반투명으로 위에 (⇧\\)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Blend — B translucent on top (⇧\\)"
+          }
+        }
+      }
+    },
+    "겹치기 — [ ]로 투명도 (⇧ 10%) · ⇧\\ 또는 Esc로 격자": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Blend — [ ] for opacity (⇧ 10%) · ⇧\\ or Esc for the grid"
+          }
+        }
+      }
+    },
+    "겹침 A/B 뒤집기": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Swap Overlay A/B"
+          }
+        }
+      }
+    },
+    "단독": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Single"
+          }
+        }
+      }
+    },
+    "단독 (선택한 테이크)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Single (Selected Take)"
+          }
+        }
+      }
+    },
+    "단독 — 선택한 테이크만 크게 (1~4)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Single — the selected take only (1–4)"
+          }
+        }
+      }
+    },
+    "맞춤": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fit"
+          }
+        }
+      }
+    },
+    "배율": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zoom"
+          }
+        }
+      }
+    },
+    "배율 — 100%·200%는 큰 쪽 원본 픽셀 1:1·2:1. 영상을 끌어 이동, 더블클릭으로 맞춤": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zoom — 100%/200% show the larger take's pixels 1:1/2:1. Drag to pan, double-click to fit"
+          }
+        }
+      }
+    },
+    "열린 테이크 없음": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No takes open"
+          }
+        }
+      }
+    },
+    "전체 보기": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All"
+          }
+        }
+      }
+    },
+    "전체 보기 — 격자 (Esc · 0)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All — grid (Esc · 0)"
+          }
+        }
+      }
+    },
+    "테이크 %lld개 · 범위 %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld takes · range %@"
+          }
+        }
+      }
+    },
+    "테이크끼리 fps가 다릅니다 — 공통 1프레임은 기준 테이크(구간이 가장 긴 테이크)의 한 프레임": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Takes have different fps — a shared frame step is one frame of the reference take (the longest In–Out)"
+          }
+        }
+      }
+    },
+    "투명도": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opacity"
+          }
+        }
+      }
+    },
+    "프레임 이동 자가진단: %lld/%lld 정확 (fps 섞임 — 테이크 %lld 기준 ±1프레임 왕복 %lld회, 나머지 %lld개는 In + t)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Frame step self-test: %1$lld/%2$lld exact (mixed fps — ±1 frame on take %3$lld, %4$lld round trips; the other %5$lld at In + t)"
+          }
+        }
+      }
+    },
+    "프레임 이동 자가진단: 기준 테이크가 없습니다": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Frame step self-test: no reference take"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

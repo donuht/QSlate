@@ -61,10 +61,7 @@ struct TakeCell: View {
                 .lineLimit(1)
                 .truncationMode(.middle)
             if let info = take.info {
-                Text(verbatim: Self.details(info))
-                    .font(.system(.caption, design: .monospaced))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
+                TakeDetails(info: info, mixedFps: model.hasMixedFps)
                     .layoutPriority(1)
             }
             Spacer(minLength: 0)
@@ -73,13 +70,29 @@ struct TakeCell: View {
         .contentShape(Rectangle())
         .onTapGesture { model.select(index) }
     }
+}
 
-    /// `· 1920×1080 · 24fps · 4.00s` (파일명 뒤에 붙는다)
-    static func details(_ info: TakeInfo) -> String {
+/// `· 1920×1080 · 24fps · 4.00s` (파일명 뒤에 붙는다). 테이크끼리 fps가 다르면 fps를 노란 배지로.
+struct TakeDetails: View {
+    let info: TakeInfo
+    let mixedFps: Bool
+
+    var body: some View {
         let fps = abs(info.fps - info.fps.rounded()) < 0.01
             ? String(format: "%.0f", info.fps)
             : String(format: "%.3f", info.fps)
-        return String(format: "· %.0f×%.0f · %@fps · %.2fs", info.size.width, info.size.height, fps, info.duration)
+        HStack(spacing: 0) {
+            Text(verbatim: String(format: "· %.0f×%.0f · ", info.size.width, info.size.height))
+            Text(verbatim: "\(fps)fps")
+                .foregroundStyle(mixedFps ? Color.black : Color.secondary)
+                .padding(.horizontal, mixedFps ? 3 : 0)
+                .background(RoundedRectangle(cornerRadius: 3).fill(mixedFps ? Color.yellow : Color.clear))
+                .help(mixedFps ? String(localized: "테이크끼리 fps가 다릅니다 — 공통 1프레임은 기준 테이크(구간이 가장 긴 테이크)의 한 프레임") : "")
+            Text(verbatim: String(format: " · %.2fs", info.duration))
+        }
+        .font(.system(.caption, design: .monospaced))
+        .foregroundStyle(.secondary)
+        .lineLimit(1)
     }
 }
 
@@ -106,6 +119,8 @@ struct TakeStrip: View {
                     inPoint: take.inPoint,
                     outPoint: take.outPoint,
                     position: take.position,
+                    thumbnails: take.thumbnails,
+                    aspect: info.size.height > 0 ? info.size.width / info.size.height : 16 / 9,
                     onScrub: { phase in
                         switch phase {
                         case .began: model.takeScrubbing(index, began: true)
@@ -116,7 +131,6 @@ struct TakeStrip: View {
                 )
                 .frame(height: 10)
                 .disabled(disabled)
-                .help(String(localized: "끌어서 이 테이크 위치만 이동 (In/Out은 그대로)"))
             }
         }
         .padding(.horizontal, 2)
@@ -290,9 +304,16 @@ struct TakeBar: View {
     let inPoint: Double
     let outPoint: Double
     let position: Double
+    /// 호버 썸네일(없으면 말풍선 없음)
+    var thumbnails: ThumbnailCache?
+    /// 영상 가로/세로
+    var aspect: Double = 16 / 9
     let onScrub: (ScrubPhase) -> Void
 
     @State private var isDragging = false
+    /// 마우스(또는 끌기)가 가리키는 바 위 x — nil이면 말풍선 없음
+    @State private var pointerX: CGFloat?
+    @State private var isHovering = false
 
     var body: some View {
         GeometryReader { geo in
@@ -301,6 +322,49 @@ struct TakeBar: View {
             let start = min(max(0, inPoint * scale), width)
             let end = min(max(start, outPoint * scale), width)
             let x = min(max(0, position * scale), width)
+            bar(width: width, start: start, end: end, x: x)
+                .overlay(alignment: .topLeading) {
+                    if let pointerX, let thumbnails, width > 0 {
+                        let frame = thumbnails.frame(at: Double(pointerX / width) * duration)
+                        BarThumbnailBubble(cache: thumbnails, frame: frame, aspect: aspect)
+                            .fixedSize()
+                            .alignmentGuide(.leading) { d in
+                                // 말풍선 가운데를 마우스 x에, 바 양 끝에서는 안쪽으로 붙인다.
+                                let left = min(max(0, pointerX - d.width / 2), max(0, width - d.width))
+                                return -left
+                            }
+                            .alignmentGuide(.top) { d in d.height + 6 }
+                            .allowsHitTesting(false)
+                    }
+                }
+                .onContinuousHover { phase in
+                    switch phase {
+                    case .active(let point):
+                        isHovering = true
+                        pointAt(point.x, width: width)
+                    case .ended:
+                        isHovering = false
+                        if !isDragging { leave() }
+                    }
+                }
+        }
+        .accessibilityHidden(true)
+    }
+
+    /// 말풍선을 x로 옮기고 그 프레임 썸네일을 요청한다.
+    private func pointAt(_ rawX: CGFloat, width: CGFloat) {
+        guard width > 0, let thumbnails else { return }
+        let x = min(max(0, rawX), width)
+        pointerX = x
+        thumbnails.request(frame: thumbnails.frame(at: Double(x / width) * duration))
+    }
+
+    private func leave() {
+        pointerX = nil
+        thumbnails?.cancelPending()
+    }
+
+    private func bar(width: CGFloat, start: CGFloat, end: CGFloat, x: CGFloat) -> some View {
             ZStack(alignment: .leading) {
                 Rectangle().fill(Color.secondary.opacity(0.22))
                 Rectangle()
@@ -324,13 +388,14 @@ struct TakeBar: View {
                         guard width > 0 else { return }
                         let fraction = min(max(0, value.location.x / width), 1)
                         onScrub(.moved(fraction * duration))
+                        // 끄는 중에도 말풍선이 따라간다(어디로 가는지 보이게).
+                        pointAt(value.location.x, width: width)
                     }
                     .onEnded { _ in
                         isDragging = false
                         onScrub(.ended)
+                        if !isHovering { leave() }
                     }
             )
-        }
-        .accessibilityHidden(true)
     }
 }

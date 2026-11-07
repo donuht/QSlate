@@ -19,8 +19,12 @@ macOS용 생성 영상 테이크 비교기. 같은 컷을 여러 번 뽑은 mp4 
 ░░░░░░░░░░░░████████████|█████████████░░░░░░░░░░░   ← 이 테이크 전체 길이, █ = In~Out, | = 지금 (끌어서 이 테이크 위치만 이동)
 ```
 
-- **스크럽**: 창 아래 공통 슬라이더 하나로 전부 같이 정확히(허용 오차 0) 이동. 시각 표시는 `t / 범위`. 그 옆 `◀`/`▶`는 모든 테이크 한 프레임(`AVPlayerItem.step(byCount:)` — 각 테이크가 자기 프레임 하나씩, 길게 누르면 반복). 키보드로 1초 단위 이동, 처음·끝. 공통 줄에는 루프·음소거·`지금 프레임 저장`(⌘S)·`인·아웃 모두 초기화` 버튼도 있다.
-- **A/B 토글**: 숫자키 `1`~`4`로 그 테이크만 창 전체로 본다. 시각·재생 상태는 그대로. 같은 키나 `Esc`로 격자로 돌아온다.
+- **스크럽**: 창 아래 공통 슬라이더 하나로 전부 같이 정확히(허용 오차 0) 이동. 시각 표시는 `t / 범위`. 그 옆 `◀`/`▶`는 모든 테이크 한 프레임(`AVPlayerItem.step(byCount:)` — 각 테이크가 자기 프레임 하나씩, 길게 누르면 반복. fps가 섞이면 기준 테이크 한 프레임만큼). 키보드로 1초 단위 이동, 처음·끝. 공통 줄에는 루프·음소거·`지금 프레임 저장`(⌘S)·`인·아웃 모두 초기화` 버튼도 있다.
+- **보기 모드 줄**: 창 맨 위 오른쪽에 `전체 보기`(격자) · `단독`(선택한 테이크만 크게) · `갈라보기` · `겹치기` 네 개. 왼쪽에는 열린 테이크 수와 범위. 메뉴 `보기`에도 같은 항목이 있다.
+- **A/B 토글**: 숫자키 `1`~`4`로 그 테이크만 창 전체로 본다. 시각·재생 상태는 그대로. 같은 키나 `Esc`(`0`)로 격자로 돌아온다.
+- **겹쳐 보기(갈라보기·겹치기)**: 두 테이크를 같은 자리에 겹쳐 재생한다. 기본은 선택한 테이크가 A(아래), 그 다음 번호(없으면 이전)가 B(위). `\`(갈라보기)는 화면에 가는 흰 세로선이 생겨 선 왼쪽은 A, 오른쪽은 B가 보인다 — 선을 끌거나 `[` `]`(2%, `⇧`는 10%)로 옮긴다. `⇧\`(겹치기)는 B를 반투명으로 올린다(투명도 슬라이더 0~100%, 기본 50%, `[` `]`도 됨). 영상 위 왼쪽·오른쪽 위 모서리에 A·B 이름이 뜬다. 위쪽 겹침 바에서 A·B를 팝업으로 바꾸고 `⇄`로 뒤집는다. 해상도가 달라도 화면 맞춤으로 같은 크기에 겹친다(비율이 다르면 가운데 정렬). 배율 `맞춤 / 100% / 200%`는 두 테이크 중 큰 해상도 기준 원본 픽셀 1:1·2:1 — 업스케일 결과와 원본을 같은 자리에서 픽셀 단위로 비교할 때 쓴다. 확대 상태에서는 영상을 끌어 이동하고 더블클릭하면 맞춤으로 돌아온다(세로선은 화면 기준이라 이동과 무관). 아래에는 A·B 두 테이크의 조작 줄이 나란히 남고 공통 조작도 그대로 쓴다. 같은 키나 `Esc`로 격자.
+- **바 호버 썸네일**: 칸 조작 줄의 바 위에 마우스를 올리거나 끌면 그 지점 프레임 썸네일과 `00:01.25 · 30f`가 말풍선으로 뜬다(앞뒤 1프레임 오차 허용·테이크별 최근 200장 기억 — 정확한 프레임은 화면이 보여준다).
+- **fps가 다른 테이크**: 24fps·30fps처럼 섞이면 칸 라벨의 fps가 노란색으로 바뀌고, 공통 1프레임(`◀ ▶`·`← →`)은 기준 테이크(구간이 가장 긴 테이크)의 한 프레임만큼 시간을 옮긴다 — 나머지는 자기 In + t를 포함하는 자기 프레임에 선다. 열 때 상태줄에 기준 테이크를 알린다.
 - **소리**: 선택한 테이크 하나만 소리를 낸다. 칸을 클릭하거나 칸 조작 줄의 아무 버튼(`▶` 빼고)을 누르면 선택(테두리 강조), `🔊`는 그 테이크 소리를 켜고 전체 음소거도 푼다. `M`으로 전체 음소거.
 - **프레임 저장**: `⌘S`로 지금 보이는 프레임을 모든 테이크에서 PNG로 뽑는다. 첫 번째 파일이 있는 폴더 아래 `_frames/`에 `<원본파일명>_t03.47.png`로 저장되고(시각은 In과 상관없이 그 테이크 원본 기준), 상태줄의 결과를 누르면 Finder에서 보여준다. `⇧⌘S`는 선택한 테이크 한 장만.
 - **못 여는 파일**(코덱 미지원 등)은 그 칸에 사유를 띄우고 나머지로 계속 비교한다.
@@ -32,7 +36,7 @@ macOS용 생성 영상 테이크 비교기. 같은 컷을 여러 번 뽑은 mp4 
 |---|---|
 | `⌘O` | 열기 (여러 개 선택) |
 | `스페이스` | 재생 / 정지 (공통). 칸 `▶`로 도는 테이크가 있으면 먼저 전부 정지만 하고, 한 번 더 누르면 공통 재생 — 각자 In부터 줄 세워 간다 |
-| `←` / `→` | 모든 테이크 한 프레임 뒤로 / 앞으로 (각자 자기 fps의 한 프레임) |
+| `←` / `→` | 모든 테이크 한 프레임 뒤로 / 앞으로 (각자 자기 fps의 한 프레임. fps가 섞이면 기준 테이크의 한 프레임만큼 시간 이동) |
 | `⇧←` / `⇧→` | 모든 테이크 1초 뒤로 / 앞으로 |
 | `⌥←` / `⌥→` | 선택한 테이크 위치만 한 프레임 뒤로 / 앞으로 (칸 `◀ ▶`와 같음 — In/Out·다른 테이크는 그대로) |
 | `⌥⇧←` / `⌥⇧→` | 선택한 테이크 위치만 1초 뒤로 / 앞으로 |
@@ -43,7 +47,10 @@ macOS용 생성 영상 테이크 비교기. 같은 컷을 여러 번 뽑은 mp4 
 | 보기 → 프레임 이동 자가진단 | 모든 테이크를 ±1프레임 10회 왕복해 시각 변화가 정확히 1/fps인지 확인, 상태줄에 `10/10 정확` |
 | `Home` / `End` | 처음 / 끝 (공통 — 모두 각자 In 기준으로 다시 줄 선다) |
 | `1` ~ `4` | 그 테이크만 창 전체로 (다시 누르면 격자) |
-| `Esc` | 격자로 |
+| `\` | 갈라보기 — 세로선 왼쪽 A, 오른쪽 B (다시 누르면 격자) |
+| `⇧\` | 겹치기 — B 반투명 (다시 누르면 격자) |
+| `[` / `]` | 겹쳐 보기에서 선(겹치기면 투명도) 2% 왼쪽·오른쪽, `⇧`와 함께 10% |
+| `Esc` / `0` | 격자로 |
 | `L` | 루프 켜고 끄기 (기본 켬) |
 | `M` | 전체 음소거 |
 | `⌘S` | 프레임 저장 — 모든 테이크 |
@@ -90,6 +97,7 @@ xcodebuild -scheme QSlate -configuration Release -derivedDataPath build
 - 한 프레임 이동은 `AVPlayerItem.step(byCount:)`를 쓴다. 단, 영상 출력이 하나도 붙지 않은 플레이어는 한 번에 0.25초씩 뛴다 — 단독 보기로 칸이 화면에서 빠져도 정확하도록 플레이어마다 `AVPlayerItemVideoOutput`을 늘 붙여 둔다.
 - `CMTime(seconds:preferredTimescale:)`는 버림이라 프레임 시작 시각(예: 31/24초)을 넣으면 앞 프레임이 나온다. 초 → CMTime 변환은 마이크로초 올림으로 한다. `⌘S`는 각 플레이어의 `currentTime()`을 그대로 넘긴다.
 - Out은 플레이어의 `forwardPlaybackEndTime`으로 건다 — 재생이 그 프레임에서 저절로 멈춘다.
+- 갈라보기는 SwiftUI `mask` 대신 `CALayer`로 자른다: A·B를 각자 `AVPlayerLayer`로 같은 자리에 겹치고, B는 `masksToBounds` 클립 레이어 안에 둔다. 클립 레이어 frame을 선 오른쪽만큼으로 줄이고 bounds.origin을 같은 만큼 옮겨 B 영상은 한 픽셀도 밀리지 않고 가려지기만 한다.
 - 없는 것: In/Out 기억(세션 저장), 드래그로 In/Out 잡기, 오디오 파형, 속도 조절, 트림·내보내기, 설정 창.
 
 ## English
@@ -103,7 +111,7 @@ QSlate is a small macOS app for comparing AI-generated video takes. Drop 2–4 m
 ░░░░░░░░░░░░████████████|█████████████░░░░░░░░░░░   ← whole take, █ = In–Out, | = playhead (drag to move this take only)
 ```
 
-The shared bar at the bottom of the window has one slider that scrubs every take frame-accurately, `◀`/`▶` to step every take one frame (hold to repeat), loop, mute, **Save** (`⌘S`) and **Clear All In/Out**. `Space` plays/pauses (if any cell is playing on its own, the first press only stops everything; the next press starts shared playback from each take's In), `←`/`→` steps every take one frame (`AVPlayerItem.step(byCount:)`, each by its own frame), `⇧←`/`⇧→` one second, `Home`/`End` jump to start/end, `L` toggles loop (on by default). View → Frame Step Self-Test steps all takes ±1 frame ten times and reports e.g. `10/10 exact`. Press `1`–`4` to view one take full-window (A/B), and the same key or `Esc` to return to the grid. Only the selected take (click a cell) plays audio; `M` mutes everything. `⌘S` saves the frame each take is showing as PNG into `_frames/` next to the first file (`<name>_t03.47.png`, time measured in the original file regardless of In); `⇧⌘S` saves only the selected take. Click the status bar result to reveal the files in Finder. Files that cannot be decoded show the reason in their cell while the rest keep working. UI is in Korean and English.
+The shared bar at the bottom of the window has one slider that scrubs every take frame-accurately, `◀`/`▶` to step every take one frame (hold to repeat), loop, mute, **Save** (`⌘S`) and **Clear All In/Out**. `Space` plays/pauses (if any cell is playing on its own, the first press only stops everything; the next press starts shared playback from each take's In), `←`/`→` steps every take one frame (`AVPlayerItem.step(byCount:)`, each by its own frame), `⇧←`/`⇧→` one second, `Home`/`End` jump to start/end, `L` toggles loop (on by default). View → Frame Step Self-Test steps all takes ±1 frame ten times and reports e.g. `10/10 exact`. Press `1`–`4` to view one take full-window (A/B), and the same key or `Esc` (`0`) to return to the grid. The view bar at the top right switches between **All** (grid), **Single**, **Split** and **Blend** (also in the View menu). **Split** (`\`) overlays two takes in the same place with a thin white vertical line: A shows left of the line, B right of it — drag the line or nudge it with `[` `]` (2%, `⇧` for 10%). **Blend** (`⇧\`) puts B on top at adjustable opacity (default 50%, `[` `]` too). By default A is the selected take and B the next one (or the previous). The overlay bar picks A and B from pop-ups and `⇄` swaps them; takes of different resolutions are fitted to the same size (centered if the aspect differs). Zoom `Fit / 100% / 200%` shows the larger take's pixels 1:1 or 2:1 for comparing an upscale with its source; drag to pan, double-click to fit (the line stays put on screen). Both takes' control strips stay below and the shared controls work as usual. Hovering or dragging any take bar shows a thumbnail of that point with `00:01.25 · 30f` (within ±1 frame, the last 200 cached per take). When takes have different frame rates, the fps in the cell labels turns yellow and a shared frame step moves time by one frame of the reference take (the longest In–Out); the others land on their own frame containing In + t. Only the selected take (click a cell) plays audio; `M` mutes everything. `⌘S` saves the frame each take is showing as PNG into `_frames/` next to the first file (`<name>_t03.47.png`, time measured in the original file regardless of In); `⇧⌘S` saves only the selected take. Click the status bar result to reveal the files in Finder. Files that cannot be decoded show the reason in their cell while the rest keep working. UI is in Korean and English.
 
 Requires macOS 14+ (Apple Silicon and Intel). Download `QSlate.zip` from Releases and move `QSlate.app` to Applications. The app is not yet notarized, so the first launch is blocked: double-click it, choose **Done** in the warning, then go to **System Settings → Privacy & Security**, scroll down and click **Open Anyway**. (On macOS 14 and earlier, right-click → Open also works.) Or run the `xattr` command above.
 

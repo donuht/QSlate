@@ -21,8 +21,59 @@ final class CompareModel {
     private(set) var isMuted = false
     /// 선택한 테이크(0부터) — 소리, In/Out, ⌥화살표(그 테이크만 이동)의 대상
     private(set) var selectedIndex = 0
-    /// 창 전체로 보는 테이크(0부터). nil이면 격자.
-    private(set) var soloIndex: Int?
+    /// 보기 모드: 격자 / 한 테이크만 크게 / 두 테이크 겹쳐 보기(A 아래, B 위)
+    enum ViewMode: Equatable {
+        case grid
+        case solo(Int)
+        case overlay(a: Int, b: Int)
+    }
+
+    /// 겹쳐 보기 방식: 갈라보기(세로선 왼쪽 A, 오른쪽 B) / 겹치기(B 반투명)
+    enum OverlayStyle: Equatable {
+        case wipe
+        case blend
+    }
+
+    /// 겹쳐 보기 배율: 화면 맞춤 / B 원본 픽셀 1:1 / 2:1
+    enum OverlayZoom: Equatable, CaseIterable {
+        case fit
+        case actual
+        case double
+
+        /// 화면 픽셀 대비 B 원본 픽셀 배율. 맞춤이면 nil.
+        var pixelScale: Double? {
+            switch self {
+            case .fit: nil
+            case .actual: 1
+            case .double: 2
+            }
+        }
+    }
+
+    private(set) var viewMode: ViewMode = .grid
+    /// 겹쳐 보기 방식(툴바 갈라보기·겹치기). 겹쳐 보기가 아닐 때도 마지막 값을 기억한다.
+    private(set) var overlayStyle: OverlayStyle = .wipe
+    /// 갈라보기 세로선 위치(화면 폭 대비 0~1, 기본 0.5). 선 왼쪽 = A, 오른쪽 = B
+    private(set) var wipePosition: Double = 0.5
+    /// 겹치기에서 B의 불투명도(0~1, 기본 0.5)
+    private(set) var blendOpacity: Double = 0.5
+    private(set) var overlayZoom: OverlayZoom = .fit
+    /// 확대 상태의 팬(화면 pt, 가운데 기준 이동량). 뷰가 끌기로 바꾼다.
+    var overlayPan: CGSize = .zero
+
+    /// 창 전체로 보는 테이크(0부터). 단독 보기가 아니면 nil.
+    var soloIndex: Int? {
+        if case .solo(let index) = viewMode { return index }
+        return nil
+    }
+
+    /// 겹쳐 보기 중인 두 테이크(A 아래, B 위). 겹쳐 보기가 아니면 nil.
+    var overlayPair: (a: Int, b: Int)? {
+        if case .overlay(let a, let b) = viewMode { return (a, b) }
+        return nil
+    }
+
+    var isOverlay: Bool { overlayPair != nil }
     /// 프레임 이동 자가진단 중에는 다른 이동을 받지 않는다.
     private(set) var isDiagnosing = false
 
@@ -121,7 +172,9 @@ final class CompareModel {
         let generation = loadGeneration
         takes = chosen.enumerated().map { Take(url: $0.element, index: $0.offset) }
         selectedIndex = 0
-        soloIndex = nil
+        viewMode = .grid
+        overlayZoom = .fit
+        overlayPan = .zero
         currentTime = 0
         isAligned = true
 
@@ -170,6 +223,16 @@ final class CompareModel {
         } else {
             setStatus(String(localized: "\(takes.count)개 열림 — 스페이스 재생, I/O 인·아웃, ⌥←→ 선택 테이크만 1프레임, ⌘S 지금 프레임 저장"))
         }
+        if hasMixedFps, let master = masterTake {
+            setStatus(statusMessage + " · " + String(localized: "fps가 다릅니다 — 공통 1프레임은 테이크 \(master.index + 1) 기준"))
+        }
+    }
+
+    /// 열린 테이크들의 fps가 서로 다른가(24·30 섞임 등)
+    var hasMixedFps: Bool {
+        let rates = readyTakes.compactMap { $0.info?.fps }
+        guard let first = rates.first else { return false }
+        return rates.contains { abs($0 - first) > 0.001 }
     }
 
     /// 시계 테이크가 바뀌었으면(In/Out을 바꿔 구간 길이가 달라졌을 때) 관찰자를 새 플레이어로 옮긴다.
@@ -468,6 +531,10 @@ final class CompareModel {
 
     private func performFrameStep(_ frames: Int) {
         guard masterTake != nil else { return }
+        if hasMixedFps {
+            performMasterFrameStep(frames)
+            return
+        }
         let t = currentTime
         var moved: [(AVPlayer, CMTime)] = []
         var held: [Take] = []
@@ -503,6 +570,41 @@ final class CompareModel {
                 self.currentTime = newT
                 // Out에 멈춰 있던 테이크가 다시 구간 안으로 들어왔으면 정확히 세운다.
                 for take in held where !take.isHeld(at: newT) {
+                    self.seekPlayer(of: take, toAbsolute: take.absoluteTime(at: newT))
+                }
+                self.refreshPositions()
+            }
+            self.runQueuedActions()
+        }
+    }
+
+    /// fps가 섞였을 때의 공통 1프레임: **기준 테이크(master, 구간이 가장 긴 테이크)의 한 프레임만큼** 시간을 옮긴다.
+    /// 테이크마다 step(byCount:)를 부르면 24fps·30fps가 한 번에 8ms씩 벌어진다 — master만 step으로 정확히 가고,
+    /// 나머지는 자기 In + t로 허용 오차 0 seek(그 시각을 포함하는 자기 프레임에 선다).
+    private func performMasterFrameStep(_ frames: Int) {
+        guard let master = masterTake, let player = master.player, let item = player.currentItem else { return }
+        let t = currentTime
+        let fd = master.frameDuration
+        let now = player.currentTime()
+        let abs = now.seconds
+        let canMove = frames > 0
+            ? abs + fd * Double(frames) <= master.lastFrameStart + fd * 0.01
+            : abs + fd * Double(frames) >= master.inPoint - fd * 0.01
+        guard canMove else { return }
+        if frames > 0 ? item.canStepForward : item.canStepBackward {
+            item.step(byCount: frames)
+        } else {
+            player.seek(to: TimeFormat.cmTime(abs + fd * Double(frames)), toleranceBefore: .zero, toleranceAfter: .zero)
+        }
+        stepInFlight = true
+        Task { [weak self] in
+            await Self.waitUntilMoved([(player, now)])
+            guard let self else { return }
+            self.stepInFlight = false
+            if self.seeksInFlight == 0 {
+                let newT = self.timelineTimeFromMaster() ?? t
+                self.currentTime = newT
+                for take in self.readyTakes where take !== master {
                     self.seekPlayer(of: take, toAbsolute: take.absoluteTime(at: newT))
                 }
                 self.refreshPositions()
@@ -968,7 +1070,9 @@ final class CompareModel {
             let positions = self.readyTakes.map { ($0, self.absoluteNow($0)) }
             Task { [weak self] in
                 guard let self else { return }
-                let result = await self.selfTestRoundTrips(10)
+                let result = self.hasMixedFps
+                    ? await self.selfTestMasterRoundTrips(10)
+                    : await self.selfTestRoundTrips(10)
                 self.isDiagnosing = false
                 if wasAligned {
                     self.seekAll(to: t)
@@ -1024,21 +1128,164 @@ final class CompareModel {
         return failures.isEmpty ? summary : summary + " — " + failures.joined(separator: ", ")
     }
 
+    /// fps가 섞였을 때의 자가진단(공통 1프레임과 같은 방식): master는 step(byCount:)로 ±1프레임 — 변화량이 1/fps_master인지,
+    /// 나머지는 자기 In + t로 seek — `|t_i − (In_i + t)| < 자기 프레임 길이`인지 본다.
+    private func selfTestMasterRoundTrips(_ count: Int) async -> String {
+        guard let master = masterTake, let mPlayer = master.player, let mItem = mPlayer.currentItem, let info = master.info else {
+            return String(localized: "프레임 이동 자가진단: 기준 테이크가 없습니다")
+        }
+        let others: [(Take, AVPlayer)] = readyTakes.compactMap { take in
+            guard take !== master, let player = take.player else { return nil }
+            return (take, player)
+        }
+        let direction = mPlayer.currentTime().seconds + 2 * master.frameDuration < min(info.duration, master.outPoint) ? 1 : -1
+
+        /// master를 한 프레임 옮기고 나머지를 In + t로 세운 뒤 (master 변화량, 나머지 오차들)을 돌려준다.
+        func leg(_ frames: Int) async -> (delta: Double, errors: [(Take, Double)]) {
+            let before = mPlayer.currentTime()
+            mItem.step(byCount: frames)
+            await Self.waitUntilMoved([(mPlayer, before)])
+            let after = mPlayer.currentTime()
+            let t = after.seconds - master.inPoint
+            for (take, player) in others {
+                await Self.seekExactly(player, to: TimeFormat.cmTime(take.absoluteTime(at: t)))
+            }
+            let errors = others.map { take, player in (take, abs(player.currentTime().seconds - take.absoluteTime(at: t))) }
+            return ((after - before).seconds, errors)
+        }
+
+        _ = await leg(direction)       // 프레임 시작에 세운다(프레임 중간에서 step하면 Δ가 짧다)
+        _ = await leg(-direction)
+        var exact = 0
+        var failures: [String] = []
+        for trip in 1...count {
+            var tripOK = true
+            for sign in [1, -1] {
+                let (delta, errors) = await leg(direction * sign)
+                let expected = master.frameDuration * Double(direction * sign)
+                var ok = abs(delta - expected) < master.frameDuration * 0.01
+                log.info("selftest(master) trip \(trip) take \(master.index + 1): Δ=\(delta, format: .fixed(precision: 6)) 기대 \(expected, format: .fixed(precision: 6)) \(ok ? "OK" : "FAIL")")
+                if !ok, failures.count < 3 {
+                    failures.append(String(format: "T%d Δ%.4f≠%.4f", master.index + 1, delta, expected))
+                }
+                for (take, error) in errors where error >= take.frameDuration {
+                    ok = false
+                    if failures.count < 3 { failures.append(String(format: "T%d 오차 %.4f", take.index + 1, error)) }
+                }
+                if !ok { tripOK = false }
+            }
+            if tripOK { exact += 1 }
+        }
+        let summary = String(localized: "프레임 이동 자가진단: \(exact)/\(count) 정확 (fps 섞임 — 테이크 \(master.index + 1) 기준 ±1프레임 왕복 \(count)회, 나머지 \(others.count)개는 In + t)")
+        return failures.isEmpty ? summary : summary + " — " + failures.joined(separator: ", ")
+    }
+
+    /// 허용 오차 0 seek이 끝날 때까지 기다린다.
+    private static func seekExactly(_ player: AVPlayer, to time: CMTime) async {
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            player.seek(to: time, toleranceBefore: .zero, toleranceAfter: .zero) { _ in continuation.resume() }
+        }
+    }
+
     // MARK: - 보기·소리
 
     /// 숫자키: 그 테이크만 창 전체로. 같은 키를 다시 누르면 격자로.
     func toggleSolo(_ index: Int) {
         guard index < takes.count else { return }
         if soloIndex == index {
-            soloIndex = nil
+            viewMode = .grid
         } else {
-            soloIndex = index
+            viewMode = .solo(index)
             select(index)
         }
     }
 
+    /// 툴바 단독: 선택한 테이크만 크게
+    func showSoloSelected() {
+        guard selectedIndex < takes.count else { return }
+        viewMode = .solo(selectedIndex)
+    }
+
     func showGrid() {
-        soloIndex = nil
+        viewMode = .grid
+    }
+
+    // MARK: - 겹쳐 보기 (갈라보기·겹치기)
+
+    /// 겹쳐 볼 수 있는가(정상 테이크 2개 이상)
+    var canOverlay: Bool { readyTakes.count >= 2 }
+
+    /// 툴바 갈라보기·겹치기: 그 방식으로 겹쳐 본다. A = 선택한 테이크, B = A의 다음 번호(없으면 이전).
+    /// 이미 겹쳐 보는 중이면 A·B는 그대로 두고 방식만 바꾼다.
+    func showOverlay(_ style: OverlayStyle) {
+        guard canOverlay else {
+            setStatus(String(localized: "겹쳐 보려면 열린 테이크가 2개 이상 필요합니다"))
+            return
+        }
+        overlayStyle = style
+        guard overlayPair == nil else { return }
+        let a = takes.indices.contains(selectedIndex) && takes[selectedIndex].isReady ? selectedIndex : readyTakes[0].index
+        guard let b = defaultPartner(of: a) else { return }
+        overlayZoom = .fit
+        overlayPan = .zero
+        viewMode = .overlay(a: a, b: b)
+        if selectedIndex != a { select(a) }
+    }
+
+    /// `\`·`⇧\`: 같은 방식으로 겹쳐 보는 중이면 격자로, 아니면 그 방식으로 겹쳐 본다.
+    func toggleOverlay(_ style: OverlayStyle) {
+        if isOverlay, overlayStyle == style {
+            viewMode = .grid
+        } else {
+            showOverlay(style)
+        }
+    }
+
+    /// A의 짝: A 다음 번호의 정상 테이크, 없으면 A 이전 번호 중 가장 가까운 것
+    func defaultPartner(of a: Int) -> Int? {
+        let ready = readyTakes.map(\.index).filter { $0 != a }
+        return ready.first { $0 > a } ?? ready.last { $0 < a }
+    }
+
+    /// 겹침 바 A 팝업. B와 같은 테이크를 고르면 A·B를 맞바꾼다. A가 선택 테이크가 된다(소리).
+    func setOverlayA(_ index: Int) {
+        guard let pair = overlayPair, takes.indices.contains(index), takes[index].isReady, index != pair.a else { return }
+        viewMode = .overlay(a: index, b: index == pair.b ? pair.a : pair.b)
+        select(index)
+    }
+
+    /// 겹침 바 B 팝업. A와 같은 테이크를 고르면 맞바꾼다.
+    func setOverlayB(_ index: Int) {
+        guard let pair = overlayPair, takes.indices.contains(index), takes[index].isReady, index != pair.b else { return }
+        viewMode = .overlay(a: index == pair.a ? pair.b : pair.a, b: index)
+    }
+
+    /// ⇄: A·B 뒤집기(선 왼쪽·아래 ↔ 선 오른쪽·위)
+    func flipOverlay() {
+        guard let pair = overlayPair else { return }
+        viewMode = .overlay(a: pair.b, b: pair.a)
+    }
+
+    func setWipePosition(_ position: Double) {
+        wipePosition = min(max(0, position), 1)
+    }
+
+    /// `[` `]`: 갈라보기면 선을, 겹치기면 투명도를 `delta`(0~1)만큼
+    func nudgeOverlay(by delta: Double) {
+        guard isOverlay else { return }
+        switch overlayStyle {
+        case .wipe: setWipePosition(wipePosition + delta)
+        case .blend: setBlendOpacity(blendOpacity + delta)
+        }
+    }
+
+    func setBlendOpacity(_ opacity: Double) {
+        blendOpacity = min(max(0, opacity), 1)
+    }
+
+    func setOverlayZoom(_ zoom: OverlayZoom) {
+        overlayZoom = zoom
+        overlayPan = .zero
     }
 
     func select(_ index: Int) {
