@@ -206,6 +206,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     @objc func runStepSelfTest(_ sender: Any?) { model.runStepSelfTest() }
 
     func validateMenuItem(_ item: NSMenuItem) -> Bool {
+        // ⌘ 없는 단축키(스페이스·화살표·I/O/L/M/1~4/Esc/\)는 메인 창이 키 창일 때만 — 열기 패널·About 창에서
+        // 글자를 칠 때 메뉴 단축키로 새지 않게.
+        if !item.keyEquivalent.isEmpty, !item.keyEquivalentModifierMask.contains(.command), NSApp.keyWindow !== window {
+            return false
+        }
         let hasReady = !model.readyTakes.isEmpty
         switch item.action {
         case #selector(saveAllFrames(_:)), #selector(saveSelectedFrame(_:)),

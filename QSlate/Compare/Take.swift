@@ -102,10 +102,17 @@ final class Take: Identifiable {
         t > span + InOut.epsilon
     }
 
-    /// 앞으로 한 프레임 갈 수 있는 마지막 위치(이 시각의 프레임이 마지막으로 보일 프레임)
+    /// 앞으로 한 프레임 갈 수 있는 마지막 위치(이 시각의 프레임이 마지막으로 보일 프레임) = Out 프레임, Out이 없으면 원본 마지막 프레임.
+    /// `fileLastFrameStart`와 같은 반올림 규칙(`frameStart(near:)`이 거기로 묶는다) — `길이 − 1프레임`은 길이가 프레임 배수보다
+    /// 조금 짧은 파일에서 마지막 바로 앞 프레임이 된다.
     var lastFrameStart: Double {
-        guard let info else { return 0 }
-        return min(outPoint, info.duration - frameDuration)
+        guard info != nil else { return 0 }
+        return frameStart(near: outPoint)
+    }
+
+    var isLoading: Bool {
+        if case .loading = state { return true }
+        return false
     }
 
     /// 원본 마지막 프레임의 시작 시각. 프레임 수는 반올림해 구한다 — 길이가 프레임 배수보다 조금 짧은 파일이 있다
@@ -122,6 +129,32 @@ final class Take: Identifiable {
     func frameStart(near seconds: Double) -> Double {
         let fd = frameDuration
         return ((min(max(0, seconds), fileLastFrameStart) / fd) + 1e-6).rounded(.down) * fd
+    }
+
+    /// `seconds`가 든 프레임을 보여주려고 허용 오차 0으로 seek할 목표 = 그 프레임의 시작 + ¼프레임(프레임 안쪽).
+    /// 프레임 시작 k/fps로 seek하면 pts가 ms로 반올림된 파일(tbn 1000 — 프레임 1의 pts가 0.042 > 1/24)에서 앞 프레임이 보인다(2026-11-07 리뷰).
+    /// 표시(위치·시각·In/Out)는 이 값이 아니라 `frameStart(near:)`로 한다.
+    func seekTarget(forFrameContaining seconds: Double) -> Double {
+        insideLastFrame(frameStart(near: seconds) + frameDuration * 0.25, start: frameStart(near: seconds))
+    }
+
+    /// 재생 출발 시각: `seconds`가 이미 그 프레임의 ¼ 안쪽이면 그대로(테이크끼리 시각을 덜 흩뜨린다), 프레임 앞머리면 ¼ 안쪽으로 민다.
+    func playStartTarget(forFrameContaining seconds: Double) -> Double {
+        let fd = frameDuration
+        let start = frameStart(near: seconds)
+        let s = max(0, seconds)
+        return insideLastFrame(s >= start + fd * 0.25 && s < start + fd ? s : start + fd * 0.25, start: start)
+    }
+
+    /// 마지막 프레임이 ¼프레임보다 짧은 파일에서도 길이를 넘지 않게
+    private func insideLastFrame(_ target: Double, start: Double) -> Double {
+        guard let info else { return target }
+        return min(target, max(start, info.duration - 0.001))
+    }
+
+    /// 플레이어가 프레임 시작(±0.1ms)에 서 있는가 — 그때만 step(byCount:)가 정확히 한 프레임 간다.
+    func isOnFrameStart(_ seconds: Double) -> Bool {
+        abs(seconds - frameStart(near: seconds)) <= 1e-4
     }
 
     /// 플레이어가 지금 실제로 서 있는 절대 시각

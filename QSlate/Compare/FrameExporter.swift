@@ -45,10 +45,34 @@ enum FrameExportError: LocalizedError {
 
 /// 지정한 시각의 프레임을 정확히(허용 오차 0) 뽑아 PNG로 저장한다.
 enum FrameExporter {
-    /// `<폴더>/_frames/<원본파일명>_t03.47.png`
+    /// `<폴더>/_frames/<원본파일명>_t03.47.png`. 같은 이름이 이미 있고 **다른 원본 경로**에서 저장한 것이면 `_2`, `_3`…을 붙인다
+    /// (다른 폴더의 같은 이름 파일끼리 덮어쓰지 않게). 같은 원본·같은 시각이면 덮어쓴다.
+    /// 원본 경로는 저장할 때 PNG 설명(Description) 칸에 적어 둔다 — 이 칸이 없는 예전 파일은 같은 원본으로 보고 덮어쓴다(예전 동작).
     static func destination(for source: URL, seconds: Double, in folder: URL) -> URL {
-        let base = source.deletingPathExtension().lastPathComponent
-        return folder.appendingPathComponent("\(base)_\(TimeFormat.fileTag(seconds)).png")
+        let base = "\(source.deletingPathExtension().lastPathComponent)_\(TimeFormat.fileTag(seconds))"
+        let sourcePath = sourceKey(source)
+        var number = 1
+        while true {
+            let name = number == 1 ? base : "\(base)_\(number)"
+            let url = folder.appendingPathComponent("\(name).png")
+            guard FileManager.default.fileExists(atPath: url.path) else { return url }
+            guard let saved = savedSourcePath(of: url), saved != sourcePath else { return url }
+            number += 1
+        }
+    }
+
+    /// 원본을 가리키는 값(심볼릭 링크를 풀고 정리한 경로)
+    static func sourceKey(_ source: URL) -> String {
+        source.resolvingSymlinksInPath().standardizedFileURL.path
+    }
+
+    /// 저장된 PNG에 적힌 원본 경로. 없으면 nil.
+    static func savedSourcePath(of png: URL) -> String? {
+        guard let image = CGImageSourceCreateWithURL(png as CFURL, nil),
+              let properties = CGImageSourceCopyPropertiesAtIndex(image, 0, nil) as? [CFString: Any],
+              let pngInfo = properties[kCGImagePropertyPNGDictionary] as? [CFString: Any],
+              let path = pngInfo[kCGImagePropertyPNGDescription] as? String, !path.isEmpty else { return nil }
+        return path
     }
 
     static func framesFolder(besides firstFile: URL) -> URL {
@@ -63,14 +87,19 @@ enum FrameExporter {
         generator.requestedTimeToleranceBefore = .zero
         generator.requestedTimeToleranceAfter = .zero
         let (image, _) = try await generator.image(at: time)
-        try writePNG(image, to: destination)
+        try writePNG(image, to: destination, sourcePath: sourceKey(source))
     }
 
-    static func writePNG(_ image: CGImage, to url: URL) throws {
+    /// `sourcePath`가 있으면 PNG 설명 칸에 원본 경로를 적는다(이름 충돌 판단용).
+    static func writePNG(_ image: CGImage, to url: URL, sourcePath: String? = nil) throws {
         guard let dest = CGImageDestinationCreateWithURL(url as CFURL, UTType.png.identifier as CFString, 1, nil) else {
             throw FrameExportError.cannotCreateFile(url)
         }
-        CGImageDestinationAddImage(dest, image, nil)
+        var properties: [CFString: Any] = [:]
+        if let sourcePath {
+            properties[kCGImagePropertyPNGDictionary] = [kCGImagePropertyPNGDescription: sourcePath]
+        }
+        CGImageDestinationAddImage(dest, image, properties.isEmpty ? nil : properties as CFDictionary)
         guard CGImageDestinationFinalize(dest) else {
             throw FrameExportError.cannotCreateFile(url)
         }

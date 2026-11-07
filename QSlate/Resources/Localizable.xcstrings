@@ -491,6 +491,36 @@
         }
       }
     },
+    "불러오는 중…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loading…"
+          }
+        }
+      }
+    },
+    "재생할 구간이 없습니다 (In과 Out이 같음)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing to play (In equals Out)"
+          }
+        }
+      }
+    },
+    "슬라이더를 끄는 중에는 In/Out을 찍지 않습니다 — 놓은 뒤 다시 누르세요": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In/Out can't be marked while dragging the slider — release it and press again"
+          }
+        }
+      }
+    },
     "열 수 없음": {
       "localizations": {
         "en": {
