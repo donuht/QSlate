@@ -784,11 +784,12 @@ final class CompareModel {
 
     private func performMarkOut(_ take: Take) {
         let now = take.frameStart(near: absoluteNow(take))
-        guard now >= take.inPoint - InOut.epsilon else {
+        // 손잡이 끌기와 같은 규칙: Out은 In보다 최소 1프레임 뒤. 같은 프레임이면 구간이 0이라 재생할 게 없다.
+        guard now >= take.inPoint + take.frameDuration - InOut.epsilon else {
             setStatus(String(localized: "Out이 In(\(TimeFormat.clock(take.inPoint)))보다 앞이라 무시했습니다 — 테이크 \(take.index + 1)"))
             return
         }
-        take.outPoint = max(now, take.inPoint)
+        take.outPoint = now
         inOutChanged()
         setStatus(String(localized: "테이크 \(take.index + 1) Out = \(TimeFormat.clock(now))"))
     }
